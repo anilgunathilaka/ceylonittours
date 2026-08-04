@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Brand palette */
+  --color-primary: #173a8a;
+  --color-primary-dark: #10285f;
+  --color-primary-light: #2a52b8;
+  --color-secondary: #35b8e8;
+  --color-secondary-dark: #1f96c4;
+  --color-accent: #ff8a3d;
+  --color-accent-dark: #e6701f;
+  --color-nature: #27ae60;
+  --color-gold: #c7a45b;
+  --color-gold-dark: #a3803f;
+  --color-ivory: #fafcfe;
+  --color-surface: #ffffff;
+  --color-midnight: #172033;
+  --color-slate: #556070;
+  --color-border: #e8edf4;
+
+  /* Typography */
+  --font-display: var(--font-plus-jakarta);
+  --font-sans: var(--font-plus-jakarta);
+
+  /* Motion */
+  --ease-out-luxury: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px 0 rgb(23 32 51 / 0.06), 0 1px 2px 0 rgb(23 32 51 / 0.04);
+  --shadow-card-hover: 0 20px 40px -12px rgb(23 32 51 / 0.18);
+  --shadow-elevated: 0 24px 64px -16px rgb(23 58 138 / 0.25);
+
+  /* Container — shared page content width */
+  --container-content: 1360px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-ivory);
+    color: var(--color-midnight);
+    font-family: var(--font-sans);
+    letter-spacing: 0.03em;
+    line-height: 1.75;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+  }
+
+  p,
+  li,
+  label,
+  input,
+  textarea,
+  select,
+  button,
+  a {
+    letter-spacing: 0.03em;
+    line-height: 1.75;
+  }
+
+  ::selection {
+    background: var(--color-secondary);
+    color: var(--color-surface);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .sr-only-focusable:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
