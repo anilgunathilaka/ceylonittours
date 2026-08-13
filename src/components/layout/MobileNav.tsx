@@ -4,12 +4,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Phone } from "lucide-react";
-import { navLinks } from "@/lib/nav";
+import { signOut, useSession } from "next-auth/react";
+import { visibleNavLinks } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 
 export function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <AnimatePresence>
@@ -46,7 +48,7 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
 
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" aria-label="Mobile primary">
-              {navLinks.map((link) => (
+              {visibleNavLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -59,6 +61,41 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
                   {link.label}
                 </Link>
               ))}
+              {session?.user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    void signOut({ callbackUrl: "/" });
+                  }}
+                  className="rounded-xl px-4 py-3 text-left text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary"
+                >
+                  Sign out ({session.user.name?.split(" ")[0] ?? "Account"})
+                </button>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={onClose}
+                    className={cn(
+                      "rounded-xl px-4 py-3 text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary",
+                      pathname === "/login" && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={onClose}
+                    className={cn(
+                      "rounded-xl px-4 py-3 text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary",
+                      pathname === "/register" && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    Register
+                  </Link>
+                </>
+              )}
             </nav>
 
             <div className="flex flex-col gap-3 border-t border-border px-5 py-5">

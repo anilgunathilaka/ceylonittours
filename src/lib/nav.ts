@@ -11,6 +11,16 @@ export const navLinks = [
   { label: "Contact", short: "Contact", href: "/contact" },
 ] as const;
 
-export const primaryNavLinks = navLinks.filter(
+/** Temporarily hidden from main/mobile nav — remove entries to restore */
+const HIDDEN_NAV_HREFS = new Set([
+  "/custom-tour-builder",
+  "/airport-transfers",
+  "/private-drivers",
+  "/experiences",
+]);
+
+export const visibleNavLinks = navLinks.filter((link) => !HIDDEN_NAV_HREFS.has(link.href));
+
+export const primaryNavLinks = visibleNavLinks.filter(
   (link) => link.href !== "/" && link.href !== "/contact",
 );

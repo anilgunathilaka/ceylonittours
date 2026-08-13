@@ -1,20 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { CalendarDays, CheckCircle2, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { TextField } from "@/components/ui/FormField";
 import { contactSchema, type ContactValues } from "@/lib/validation/schemas";
 
 export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const packageTitle = searchParams.get("title");
+
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ContactValues>({ resolver: zodResolver(contactSchema) });
+
+  useEffect(() => {
+    if (session?.user?.name) setValue("name", session.user.name);
+    if (session?.user?.email) setValue("email", session.user.email);
+  }, [session, setValue]);
+
+  useEffect(() => {
+    if (packageTitle) {
+      setValue(
+        "message",
+        `I'd like to check availability for "${packageTitle}". Please share available dates and a quote.`,
+      );
+    }
+  }, [packageTitle, setValue]);
 
   async function onSubmit(values: ContactValues) {
     try {
@@ -45,6 +66,12 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+      {packageTitle && (
+        <p className="rounded-xl bg-primary/5 px-4 py-3 text-sm text-midnight">
+          Booking enquiry for <span className="font-semibold">{packageTitle}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <TextField label="Full Name" icon={<User size={16} />} error={errors.name?.message} {...register("name")} />
         <TextField label="Email" type="email" icon={<Mail size={16} />} error={errors.email?.message} {...register("email")} />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -78,7 +79,9 @@ export default function ContactPage() {
           </div>
 
           <div className="rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-10">
-            <ContactForm />
+            <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-midnight/5" />}>
+              <ContactForm />
+            </Suspense>
           </div>
         </Container>
       </section>

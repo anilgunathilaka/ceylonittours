@@ -24,13 +24,17 @@
 .DS_Store
 *.pem
 
+# local auth user store
+/data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
+.env
 .env*
 
 # vercel

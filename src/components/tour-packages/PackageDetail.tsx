@@ -5,8 +5,8 @@ import { Check, Clock, Globe, MapPin, ShieldCheck, Users, Wallet, X } from "luci
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BookAvailabilityButton } from "@/components/tour-packages/BookAvailabilityButton";
 import { formatCurrency } from "@/lib/utils";
 import type { TourPackage } from "@/types";
 
@@ -230,9 +230,7 @@ export function PackageDetail({ pkg, related }: { pkg: TourPackage; related: Tou
               </div>
               <p className="text-sm text-slate">per person</p>
 
-              <Button href="/contact" variant="primary" size="lg" className="mt-6 w-full justify-center">
-                Check Availability
-              </Button>
+              <BookAvailabilityButton packageSlug={pkg.slug} packageTitle={pkg.title} />
 
               <div className="mt-6 space-y-4 border-t border-border pt-6 text-sm">
                 {pkg.freeCancellation && (

@@ -10,6 +10,7 @@ import { Logo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { AuthNav } from "@/components/auth/AuthNav";
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -43,7 +44,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "relative py-2 text-sm font-medium text-midnight/75 transition-colors hover:text-primary",
+                  "relative py-2 text-base font-bold text-midnight/75 transition-colors hover:text-primary",
                   isActive && "text-primary",
                 )}
               >
@@ -61,6 +62,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <AuthNav />
           <Button href="/contact" size="sm" className="hidden sm:inline-flex" icon={<ArrowRight size={15} />}>
             Book Now
           </Button>

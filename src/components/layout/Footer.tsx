@@ -9,8 +9,9 @@ import { FacebookIcon, InstagramIcon, XIcon } from "@/components/ui/SocialIcons"
 const quickLinks = [
   { label: "About Us", href: "/about" },
   { label: "Tour Packages", href: "/tour-packages" },
-  { label: "Custom Tour Builder", href: "/custom-tour-builder" },
-  { label: "Experiences", href: "/experiences" },
+  // Temporarily hidden: Custom Tour Builder, Experiences
+  // { label: "Custom Tour Builder", href: "/custom-tour-builder" },
+  // { label: "Experiences", href: "/experiences" },
   { label: "Blog", href: "/blog" },
   { label: "Contact", href: "/contact" },
 ];
