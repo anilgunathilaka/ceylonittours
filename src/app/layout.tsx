@@ -1,22 +1,31 @@
 import type { Metadata } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Cormorant_Garamond, Noto_Sans_Sinhala } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AuthSessionProvider } from "@/components/auth/AuthSessionProvider";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const satoshi = localFont({
+  variable: "--font-satoshi",
+  src: "./fonts/Satoshi-Variable.woff2",
+  weight: "300 900",
+  style: "normal",
+  display: "swap",
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-cormorant",
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   style: ["normal"],
+});
+
+const notoSansSinhala = Noto_Sans_Sinhala({
+  variable: "--font-noto-sinhala",
+  subsets: ["sinhala"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const siteUrl = "https://ceylonittours.com";
@@ -59,7 +68,7 @@ const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${satoshi.variable} ${cormorantGaramond.variable} ${notoSansSinhala.variable}`}>
       <body className="flex min-h-screen flex-col antialiased">
         <AuthSessionProvider>
           <a

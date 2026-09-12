@@ -26,7 +26,7 @@ export function SectionHeading({
       {eyebrow && (
         <span
           className={cn(
-            "inline-flex items-center gap-2 text-sm font-semibold tracking-[0.2em] text-secondary uppercase",
+            "inline-flex items-center gap-2 text-sm font-semibold tracking-[0.08em] text-secondary uppercase",
             centered && "justify-center",
           )}
         >

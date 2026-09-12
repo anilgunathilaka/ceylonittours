@@ -121,7 +121,7 @@ export function PopularDestinationsClient({ destinations }: { destinations: Dest
                       <MapPin size={12} />
                       {destination.region}
                     </span>
-                    <h3 className="font-display text-2xl font-semibold">{destination.name}</h3>
+                    <h3 className="font-serif text-2xl font-semibold">{destination.name}</h3>
                     <p className="text-sm text-white/75">{destination.tagline}</p>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-sm text-white/80">

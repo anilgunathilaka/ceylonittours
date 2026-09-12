@@ -63,7 +63,7 @@ export function SriLankaMapClient({ destinations }: { destinations: Destination[
       <Container className="relative z-10">
         {/* Row 1 — centered title */}
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-          <p className="text-sm font-semibold tracking-[0.28em] text-secondary uppercase">
+          <p className="text-sm font-semibold tracking-[0.08em] text-secondary uppercase">
             Explore The Island
           </p>
           <h2 className="text-4xl font-bold tracking-[0.08em] text-white uppercase sm:text-5xl lg:text-[3.25rem] lg:leading-[1.15]">
@@ -139,11 +139,11 @@ export function SriLankaMapClient({ destinations }: { destinations: Destination[
               <div className="absolute inset-0 bg-gradient-to-t from-midnight/90 via-midnight/35 to-transparent" />
 
               <div className="relative mt-auto flex flex-col gap-2 p-6 sm:p-7">
-                <span className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">
+                <span className="flex items-center gap-1.5 text-xs font-semibold tracking-[0.08em] text-secondary uppercase">
                   <MapPin size={12} />
                   {active.region}
                 </span>
-                <h3 className="text-2xl font-bold tracking-wide text-white uppercase sm:text-3xl">
+                <h3 className="font-serif text-2xl font-semibold tracking-wide text-white uppercase sm:text-3xl">
                   {active.name}
                 </h3>
                 <p className="line-clamp-3 text-sm leading-relaxed text-white/85">{active.description}</p>

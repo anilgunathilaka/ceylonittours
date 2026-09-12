@@ -13,19 +13,19 @@ import type { TourPackage } from "@/types";
 
 const heroSlides = [
   {
-    image: "/images/hero-image-sigiriya.png",
+    image: "/images/hero-image-1-sigiriya.png",
     alt: "Sigiriya rock fortress rising above the jungle in Sri Lanka",
     title: "Climb the Sigiriya Rock Fortress",
     caption: "Ancient frescoes and sweeping views above the Cultural Triangle.",
   },
   {
-    image: "/images/hero-image-pinnawala.jpeg",
+    image: "/images/2hero-image-2-pinnawala.png",
     alt: "Elephants at the Pinnawala Elephant Orphanage in Sri Lanka",
     title: "Meet the Elephants of Pinnawala",
     caption: "Watch orphaned elephants bathe and roam at Sri Lanka's most memorable sanctuary.",
   },
   {
-    image: "/images/hero-image-kandy.png",
+    image: "/images/hero-image-3-kandy.png",
     alt: "Temple and lakeside scenery in Kandy, Sri Lanka",
     title: "Discover Sacred Lakeside Kandy",
     caption: "The Temple of the Tooth, misty hills, and the gateway to tea country.",
@@ -431,7 +431,7 @@ export function LuxuryHeroClient({ floatingPackages: _floatingPackages }: { floa
                 fill
                 priority={slideIndex === 0}
                 sizes="100vw"
-                className="object-cover object-top"
+                className="object-cover object-center"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
             </motion.div>

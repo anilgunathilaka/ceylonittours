@@ -65,7 +65,9 @@ export function TestimonialsClient({ testimonials }: { testimonials: Testimonial
                 <figure className="flex h-full flex-col gap-5 rounded-2xl bg-ivory p-7 ring-1 ring-border">
                   <Quote className="text-secondary/40" size={32} />
                   <Rating value={t.rating} size="sm" />
-                  <blockquote className="flex-1 text-sm leading-relaxed text-slate">&ldquo;{t.quote}&rdquo;</blockquote>
+                  <blockquote className="flex-1 font-serif text-base font-medium leading-relaxed text-slate">
+                    &ldquo;{t.quote}&rdquo;
+                  </blockquote>
                   <figcaption className="flex items-center gap-3 border-t border-border pt-5">
                     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full">
                       <Image src={t.avatar.url} alt={t.avatar.alt} fill sizes="44px" className="object-cover" />
