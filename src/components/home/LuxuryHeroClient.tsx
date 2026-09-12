@@ -1,70 +1,424 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, ChevronDown, Clock } from "lucide-react";
-import { Container } from "@/components/ui/Container";
-import { Button } from "@/components/ui/Button";
-import { formatCurrency } from "@/lib/utils";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, CloudSun } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { destinations } from "@/lib/data/destinations";
+import { fetchDestinationWeather, type DestinationWeather } from "@/lib/weather";
+import { formatDisplayDate, getMonthGrid, startOfDay, toISODate, weekdayLabels } from "@/lib/date";
 import type { TourPackage } from "@/types";
 
-const slides = [
+const heroSlides = [
   {
-    kicker: "Discover",
-    title: "The rock fortress of Sigiriya",
-    description:
-      "Climb Sri Lanka's legendary citadel — frescoes, lion's-paw gateways, and sweeping jungle views above the Cultural Triangle.",
     image: "/images/hero-image-sigiriya.png",
     alt: "Sigiriya rock fortress rising above the jungle in Sri Lanka",
+    title: "Climb the Sigiriya Rock Fortress",
+    caption: "Ancient frescoes and sweeping views above the Cultural Triangle.",
   },
   {
-    kicker: "Explore",
-    title: "Meet the elephants of Pinnawala",
-    description:
-      "Witness orphaned elephants bathing and roaming at one of Sri Lanka's most memorable wildlife experiences.",
     image: "/images/hero-image-pinnawala.jpeg",
     alt: "Elephants at the Pinnawala Elephant Orphanage in Sri Lanka",
+    title: "Meet the Elephants of Pinnawala",
+    caption: "Watch orphaned elephants bathe and roam at Sri Lanka's most memorable sanctuary.",
   },
   {
-    kicker: "Enjoy",
-    title: "Sacred lakeside Kandy",
-    description:
-      "Temple of the Tooth, highland cool air, and the gateway to tea country — Kandy is the cultural heart of the island.",
     image: "/images/hero-image-kandy.png",
     alt: "Temple and lakeside scenery in Kandy, Sri Lanka",
+    title: "Discover Sacred Lakeside Kandy",
+    caption: "The Temple of the Tooth, misty hills, and the gateway to tea country.",
   },
 ];
 
-const SLIDE_MS = 7000;
+const HERO_SLIDE_MS = 6000;
 
-export function LuxuryHeroClient({ floatingPackages }: { floatingPackages: TourPackage[] }) {
-  const [index, setIndex] = useState(0);
+function DateField({
+  label,
+  value,
+  onChange,
+  disabled,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(() => (value ? new Date(`${value}T00:00:00`) : new Date()));
+  const containerRef = useRef<HTMLDivElement>(null);
+  const display = formatDisplayDate(value);
 
   useEffect(() => {
-    const id = setInterval(() => setIndex((i) => (i + 1) % slides.length), SLIDE_MS);
+    if (!open) return;
+
+    function handlePointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const today = startOfDay(new Date());
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const cells = getMonthGrid(year, month);
+
+  return (
+    <div ref={containerRef} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full cursor-pointer flex-col items-start justify-center gap-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+      >
+        <span className="text-[13px] leading-none font-bold text-black">{label}</span>
+        <span className={cn("mt-1 text-[14px] leading-tight", display ? "text-black" : "text-[#8c8c8c]")}>
+          {display ?? "Select date"}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label={`${label} calendar`}
+          className="absolute top-[calc(100%+8px)] left-0 z-30 w-[300px] rounded-[16px] border border-[#ececec] bg-white p-4 shadow-[0_20px_45px_-14px_rgba(17,17,17,0.28)]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] font-semibold text-black">
+              {viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Previous month"
+                onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[#555] transition-colors hover:bg-[#f6f6f6]"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next month"
+                onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[#555] transition-colors hover:bg-[#f6f6f6]"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-7 gap-y-1">
+            {weekdayLabels.map((w) => (
+              <span key={w} className="text-center text-[11px] font-semibold text-[#8c8c8c]">
+                {w}
+              </span>
+            ))}
+            {cells.map(({ date: cellDate, inMonth }, i) => {
+              const iso = toISODate(cellDate);
+              const isSelected = iso === value;
+              const isToday = cellDate.getTime() === today.getTime();
+              const isPast = cellDate < today;
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={isPast}
+                  onClick={() => {
+                    onChange(iso);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[13px] transition-colors",
+                    !inMonth && "text-[#c9c9c9]",
+                    inMonth && !isSelected && "text-black hover:bg-[#f6f6f6]",
+                    isSelected && "bg-[#f88379] font-semibold text-white hover:bg-[#f88379]",
+                    isToday && !isSelected && "font-semibold text-[#f88379]",
+                    isPast && "cursor-not-allowed opacity-40 hover:bg-transparent",
+                  )}
+                >
+                  {cellDate.getDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between border-t border-[#f0f0f0] pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="text-[13px] font-semibold text-[#555] transition-colors hover:text-black"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                onChange(toISODate(now));
+                setViewDate(now);
+                setOpen(false);
+              }}
+              className="text-[13px] font-semibold text-[#f88379] transition-colors hover:text-[#ef7469]"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DestinationDropdown({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selected = destinations.find((d) => d.slug === value);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className={cn("relative min-w-0 flex-[1.25]", className)}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full cursor-pointer flex-col items-start justify-center gap-0.5 rounded-[10px] border border-[#d0d0d0] bg-white px-5 py-3.5 text-left"
+      >
+        <span className="flex w-full items-center justify-between text-[13px] leading-none font-bold text-black">
+          Where
+          <ChevronDown size={14} className={cn("text-[#8c8c8c] transition-transform", open && "rotate-180")} />
+        </span>
+        <span className={cn("mt-1 text-[14px] leading-tight", selected ? "text-black" : "text-[#8c8c8c]")}>
+          {selected ? selected.name : "Select region(s)"}
+        </span>
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute top-[calc(100%+8px)] left-0 z-30 max-h-72 w-full min-w-[240px] overflow-auto rounded-[14px] border border-[#ececec] bg-white p-2 shadow-[0_20px_45px_-14px_rgba(17,17,17,0.28)]"
+        >
+          <li>
+            <button
+              type="button"
+              role="option"
+              aria-selected={!value}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center rounded-[8px] px-3.5 py-2.5 text-left text-[14px] transition-colors hover:bg-[#f6f6f6]",
+                !value ? "font-semibold text-black" : "text-[#8c8c8c]",
+              )}
+            >
+              Select region(s)
+            </button>
+          </li>
+          {destinations.map((d) => (
+            <li key={d.slug}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={value === d.slug}
+                onClick={() => {
+                  onChange(d.slug);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-[8px] px-3.5 py-2.5 text-left text-[14px] transition-colors",
+                  value === d.slug ? "bg-[#fdece9] font-semibold text-[#f88379]" : "text-black hover:bg-[#f6f6f6]",
+                )}
+              >
+                {d.name}
+                {value === d.slug && <Check size={14} className="shrink-0 text-[#f88379]" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function LuxuryHeroClient({ floatingPackages: _floatingPackages }: { floatingPackages: TourPackage[] }) {
+  void _floatingPackages;
+
+  const router = useRouter();
+  const [destination, setDestination] = useState("");
+  const [date, setDate] = useState("");
+  const [weather, setWeather] = useState<DestinationWeather | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setSlideIndex((i) => (i + 1) % heroSlides.length), HERO_SLIDE_MS);
     return () => clearInterval(id);
   }, []);
 
-  function next() {
-    setIndex((i) => (i + 1) % slides.length);
+  function nextSlide() {
+    setSlideIndex((i) => (i + 1) % heroSlides.length);
   }
 
-  function prev() {
-    setIndex((i) => (i - 1 + slides.length) % slides.length);
+  function prevSlide() {
+    setSlideIndex((i) => (i - 1 + heroSlides.length) % heroSlides.length);
   }
 
-  const slide = slides[index];
+  function handleDestinationChange(value: string) {
+    setDestination(value);
+    setWeather(null);
+    setWeatherError(null);
+  }
+
+  async function handleCheckWeather() {
+    if (!destination) {
+      setWeatherError("Select a destination first");
+      return;
+    }
+
+    setWeatherLoading(true);
+    setWeatherError(null);
+    try {
+      const result = await fetchDestinationWeather(destination);
+      setWeather(result);
+    } catch {
+      setWeatherError("Weather unavailable");
+    } finally {
+      setWeatherLoading(false);
+    }
+  }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+
+    const params = new URLSearchParams();
+    if (destination) params.set("destination", destination);
+    if (date) params.set("date", date);
+
+    const query = params.toString();
+
+    if (destination) {
+      router.push(`/tour-packages/availability?${query}`);
+      return;
+    }
+
+    router.push(query ? `/tour-packages?${query}` : "/tour-packages");
+  }
 
   return (
-    <section className="relative z-10 px-3 pb-6 sm:px-5 lg:px-8">
-      <div className="relative mx-auto h-[min(780px,92vh)] max-w-[1776px] overflow-hidden rounded-3xl">
-        {/* Background slider */}
-        <div className="absolute inset-0">
+    <section className="relative bg-white pb-8">
+      <div className="mx-auto max-w-[880px] px-5 pt-16 text-center sm:pt-20 lg:pt-24">
+        <h1 className="font-serif text-[42px] leading-[1.08] font-semibold tracking-[-0.02em] text-[#111] sm:text-[56px] lg:text-[68px]">
+          Sri Lanka&apos;s best tours to experience
+        </h1>
+        <p className="mx-auto mt-5 max-w-[520px] text-[17px] leading-relaxed font-normal text-[#6b6b6b] sm:text-[18px]">
+          Hand-picked itineraries for culture, wildlife, hill country and beach holidays.
+        </p>
+      </div>
+
+      {/* Search sits above image; image pulled up so bar straddles the top edge */}
+      <div className="relative mx-auto mt-12 max-w-[1776px] px-3 sm:mt-14 sm:px-5 lg:mt-16 lg:px-8">
+        <div className="relative z-20 mx-auto w-full max-w-[1040px]">
+          <form
+            onSubmit={handleSearch}
+            className="relative z-20 flex flex-col gap-3 rounded-[14px] bg-white p-5 lg:flex-row lg:items-stretch"
+          >
+            <DestinationDropdown value={destination} onChange={handleDestinationChange} />
+
+            <button
+              type="button"
+              onClick={handleCheckWeather}
+              className="flex min-w-0 flex-1 cursor-pointer flex-col items-start justify-center gap-0.5 rounded-[10px] border border-[#d0d0d0] bg-white px-5 py-3.5 text-left"
+            >
+              <span className="text-[13px] leading-none font-bold text-black">Weather</span>
+              <span className="mt-1 flex items-center gap-1.5 text-[14px] leading-tight">
+                {weatherLoading ? (
+                  <span className="text-[#8c8c8c]">Checking…</span>
+                ) : weather ? (
+                  <span className="flex items-center gap-1.5 text-black">
+                    <CloudSun size={14} className="shrink-0 text-[#f88379]" />
+                    {weather.tempC}°C · {weather.description}
+                  </span>
+                ) : weatherError ? (
+                  <span className="text-[#c0392b]">{weatherError}</span>
+                ) : (
+                  <span className="text-[#8c8c8c]">Check forecast</span>
+                )}
+              </span>
+            </button>
+
+            <DateField
+              label="Check in"
+              value={date}
+              onChange={setDate}
+              className="rounded-[10px] border border-[#d0d0d0] bg-white px-5 py-3.5"
+            />
+
+            <div className="flex shrink-0 items-center">
+              <button
+                type="submit"
+                className="flex h-12 w-full items-center justify-center rounded-full bg-[#f88379] px-8 text-[15px] font-semibold text-white transition-colors hover:bg-[#ef7469] lg:h-full lg:min-h-[56px] lg:w-auto lg:min-w-[168px]"
+              >
+                Check Availability
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Hero image slider — pulled up so the search bar sits on its top edge */}
+        <div className="relative -mt-9 h-[min(72vh,780px)] overflow-hidden rounded-[24px] sm:-mt-10 sm:rounded-[28px] lg:-mt-11 lg:rounded-[32px]">
           <AnimatePresence initial={false} mode="sync">
             <motion.div
-              key={index}
+              key={slideIndex}
               initial={{ opacity: 0, scale: 1.04 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
@@ -72,154 +426,60 @@ export function LuxuryHeroClient({ floatingPackages }: { floatingPackages: TourP
               className="absolute inset-0"
             >
               <Image
-                src={slide.image}
-                alt={slide.alt}
+                src={heroSlides[slideIndex].image}
+                alt={heroSlides[slideIndex].alt}
                 fill
-                priority={index === 0}
+                priority={slideIndex === 0}
                 sizes="100vw"
-                className="object-cover"
+                className="object-cover object-top"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
             </motion.div>
           </AnimatePresence>
-          <div className="absolute inset-0 bg-[rgba(13,13,12,0.42)]" />
-        </div>
 
-        {/* Left copy */}
-        <Container className="relative z-10 flex h-full flex-col justify-center py-16 lg:py-20">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 28 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -18 }}
-              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-              className="flex max-w-[451px] flex-col"
-            >
-              <h1 className="font-sans text-5xl leading-none font-bold tracking-tight text-white sm:text-6xl lg:text-[80px] lg:leading-[0.95]">
-                {slide.kicker}
-              </h1>
-              <p className="mt-1 font-sans text-xl font-semibold text-white sm:text-2xl lg:text-[28px] lg:leading-tight">
-                {slide.title}
-              </p>
-              <p className="mt-4 mb-9 max-w-md text-base leading-relaxed text-white/90 sm:text-lg">
-                {slide.description}
-              </p>
-              <div>
-                <Button
-                  href="/tour-packages"
-                  variant="outline"
-                  size="lg"
-                  icon={<ArrowRight size={16} />}
-                >
-                  Explore Tours
-                </Button>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </Container>
-
-        {/* Progress + arrows */}
-        <div className="absolute top-[55%] right-5 z-20 hidden w-[min(550px,46%)] items-center gap-9 lg:flex xl:right-16">
-          <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/20">
-            <motion.div
-              key={index}
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: SLIDE_MS / 1000, ease: "linear" }}
-              className="h-full rounded-full bg-white"
-            />
+          <div className="absolute bottom-4 left-4 z-10 max-w-[calc(100%-140px)] sm:bottom-6 sm:left-6 sm:max-w-md">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={slideIndex}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <h2 className="text-lg font-semibold text-white sm:text-2xl">{heroSlides[slideIndex].title}</h2>
+                <p className="mt-1 text-sm text-white/85 sm:text-base">{heroSlides[slideIndex].caption}</p>
+              </motion.div>
+            </AnimatePresence>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="absolute right-4 bottom-4 z-10 flex items-center gap-3 sm:right-6 sm:bottom-6">
+            <div className="h-[3px] w-16 overflow-hidden rounded-full bg-white/30 sm:w-24">
+              <motion.div
+                key={slideIndex}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: HERO_SLIDE_MS / 1000, ease: "linear" }}
+                className="h-full rounded-full bg-white"
+              />
+            </div>
             <button
               type="button"
-              onClick={prev}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white transition-colors hover:bg-white hover:text-midnight"
+              onClick={prevSlide}
               aria-label="Previous slide"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/70 text-white transition-colors hover:bg-white hover:text-black"
             >
-              <ArrowLeft size={14} />
+              <ChevronLeft size={14} />
             </button>
             <button
               type="button"
-              onClick={next}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white transition-colors hover:bg-white hover:text-midnight"
+              onClick={nextSlide}
               aria-label="Next slide"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/70 text-white transition-colors hover:bg-white hover:text-black"
             >
-              <ArrowRight size={14} />
+              <ChevronRight size={14} />
             </button>
           </div>
         </div>
-
-        {/* Mobile controls */}
-        <div className="absolute right-4 bottom-4 z-20 flex items-center gap-3 lg:hidden">
-          <div className="h-[3px] w-24 overflow-hidden rounded-full bg-white/20 sm:w-40">
-            <motion.div
-              key={`m-${index}`}
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: SLIDE_MS / 1000, ease: "linear" }}
-              className="h-full rounded-full bg-white"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={prev}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white"
-            aria-label="Previous slide"
-          >
-            <ArrowLeft size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={next}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white text-white"
-            aria-label="Next slide"
-          >
-            <ArrowRight size={14} />
-          </button>
-        </div>
-
-        {/* Floating tour cards */}
-        <div className="absolute right-0 bottom-[72px] z-20 hidden gap-4 pr-5 xl:flex xl:pr-10">
-          {floatingPackages.map((pkg) => (
-            <Link
-              key={pkg.slug}
-              href={`/tour-packages/${pkg.slug}`}
-              className="group flex w-[340px] items-center gap-4 rounded-2xl bg-white/30 p-4 backdrop-blur-[5px] transition-transform hover:-translate-y-0.5"
-            >
-              <div className="relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-2xl">
-                <Image src={pkg.image.url} alt={pkg.image.alt} fill sizes="104px" className="object-cover" />
-                <div className="absolute inset-0 bg-black/20" />
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="truncate font-sans text-lg font-semibold text-white">{pkg.title}</span>
-                <span className="text-base font-medium tracking-wide text-white">
-                  {formatCurrency(pkg.price)}
-                  <span className="text-white/80">/Person</span>
-                </span>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-sm text-white/85">
-                    <Clock size={13} />
-                    {pkg.durationLabel ?? `${pkg.durationDays} Days`}
-                  </span>
-                  <span className="rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-midnight transition-colors group-hover:bg-primary group-hover:text-white">
-                    Book Now
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Scroll down */}
-        <a
-          href="#destinations"
-          className="absolute bottom-0 left-1/2 z-20 hidden origin-left -translate-x-1/2 -rotate-90 items-center gap-4 text-white lg:flex"
-        >
-          <span className="whitespace-nowrap text-sm font-light tracking-wide">Scroll Down</span>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white">
-            <ChevronDown size={16} className="rotate-90 animate-bounce" />
-          </span>
-        </a>
       </div>
     </section>
   );

@@ -18,7 +18,7 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
       {open && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-midnight/40 backdrop-blur-sm xl:hidden"
+            className="fixed inset-0 z-50 bg-midnight/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -26,7 +26,7 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
             aria-hidden
           />
           <motion.div
-            className="fixed top-0 right-0 z-50 flex h-full w-[85vw] max-w-sm flex-col bg-white shadow-elevated xl:hidden"
+            className="fixed top-0 right-0 z-50 flex h-full w-[85vw] max-w-sm flex-col bg-white shadow-elevated"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}

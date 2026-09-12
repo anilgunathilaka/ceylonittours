@@ -19,8 +19,9 @@
   --color-border: #e8edf4;
 
   /* Typography */
-  --font-display: var(--font-plus-jakarta);
+  --font-display: var(--font-fraunces);
   --font-sans: var(--font-plus-jakarta);
+  --font-serif: var(--font-fraunces);
 
   /* Motion */
   --ease-out-luxury: cubic-bezier(0.16, 1, 0.3, 1);
@@ -44,7 +45,7 @@
   }
 
   body {
-    background: var(--color-ivory);
+    background: #ffffff;
     color: var(--color-midnight);
     font-family: var(--font-sans);
     letter-spacing: 0.03em;

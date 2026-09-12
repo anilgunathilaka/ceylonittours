@@ -14,6 +14,7 @@ export function ContactForm() {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const packageTitle = searchParams.get("title");
+  const travelDate = searchParams.get("date");
 
   const {
     register,
@@ -32,10 +33,16 @@ export function ContactForm() {
     if (packageTitle) {
       setValue(
         "message",
-        `I'd like to check availability for "${packageTitle}". Please share available dates and a quote.`,
+        travelDate
+          ? `I'd like to book "${packageTitle}" on ${travelDate}. Please confirm availability and a quote.`
+          : `I'd like to check availability for "${packageTitle}". Please share available dates and a quote.`,
       );
     }
-  }, [packageTitle, setValue]);
+  }, [packageTitle, travelDate, setValue]);
+
+  useEffect(() => {
+    if (travelDate) setValue("travelDate", travelDate);
+  }, [travelDate, setValue]);
 
   async function onSubmit(values: ContactValues) {
     try {

@@ -1,21 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Menu } from "lucide-react";
+import { Heart, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { primaryNavLinks } from "@/lib/nav";
 import { Logo } from "@/components/layout/Logo";
-import { Button } from "@/components/ui/Button";
-import { Container } from "@/components/ui/Container";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { AuthNav } from "@/components/auth/AuthNav";
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -27,56 +22,55 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full border-b transition-all duration-300 ease-out-luxury",
-        scrolled
-          ? "border-border bg-white/95 shadow-card backdrop-blur-sm"
-          : "border-transparent bg-white",
+        "sticky top-0 z-50 w-full bg-white transition-shadow duration-300",
+        scrolled && "shadow-[0_1px_0_0_rgba(0,0,0,0.06)]",
       )}
     >
-      <Container className={cn("flex items-center justify-between transition-all duration-300", scrolled ? "h-18 py-2" : "h-22 py-3")}>
-        <Logo />
-
-        <nav className="hidden items-center gap-8 xl:flex" aria-label="Primary">
-          {primaryNavLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "relative py-2 text-base font-bold text-midnight/75 transition-colors hover:text-primary",
-                  isActive && "text-primary",
-                )}
-              >
-                {link.short}
-                <span
-                  className={cn(
-                    "absolute -bottom-0.5 left-0 h-0.5 w-full origin-left scale-x-0 bg-primary transition-transform duration-300",
-                    isActive && "scale-x-100",
-                  )}
-                  aria-hidden
-                />
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <AuthNav />
-          <Button href="/contact" size="sm" className="hidden sm:inline-flex" icon={<ArrowRight size={15} />}>
-            Book Now
-          </Button>
+      <div className="mx-auto grid h-[72px] max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 sm:px-6 lg:px-10">
+        {/* Left: menu + search */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-midnight hover:bg-primary/5 xl:hidden"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/10 text-black transition-colors hover:bg-black/[0.03]"
             aria-label="Open menu"
             aria-expanded={mobileOpen ? "true" : "false"}
           >
-            <Menu size={22} />
+            <Menu size={20} strokeWidth={1.75} />
           </button>
+          <Link
+            href="/tour-packages"
+            className="hidden text-[16px] font-bold text-black transition-opacity hover:opacity-70 sm:inline"
+          >
+            Search tours
+          </Link>
         </div>
-      </Container>
+
+        {/* Center: logo */}
+        <Logo className="justify-self-center" />
+
+        {/* Right: saved + auth + CTA */}
+        <div className="flex items-center justify-end gap-3 lg:gap-4">
+          <Link
+            href="/tour-packages"
+            className="hidden items-center gap-2.5 text-[16px] font-medium text-black transition-opacity hover:opacity-70 md:inline-flex"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10">
+              <Heart size={16} strokeWidth={1.75} />
+            </span>
+            <span className="hidden lg:inline">Saved</span>
+          </Link>
+
+          <AuthNav />
+
+          <Link
+            href="/contact"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-[14px] font-semibold text-white transition-opacity hover:opacity-85 sm:px-6"
+          >
+            Book Now
+          </Link>
+        </div>
+      </div>
 
       <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} />
     </header>
