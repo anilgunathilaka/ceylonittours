@@ -1,107 +1,102 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { prisma, isUniqueViolation } from "@/lib/db";
 
-export type StoredUser = {
+export type PublicUser = {
   id: string;
   name: string;
   email: string;
-  /** Absent for accounts created via Google sign-in */
-  passwordHash?: string;
   image?: string;
-  createdAt: string;
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-async function ensureStore() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(USERS_FILE);
-  } catch {
-    await fs.writeFile(USERS_FILE, "[]", "utf8");
-  }
+/** Full record including the password hash — only for credential checks. */
+export async function findUserForLogin(email: string) {
+  return prisma.user.findUnique({
+    where: { email: normalizeEmail(email) },
+    select: { id: true, name: true, email: true, image: true, passwordHash: true },
+  });
 }
 
-async function readUsers(): Promise<StoredUser[]> {
-  await ensureStore();
-  const raw = await fs.readFile(USERS_FILE, "utf8");
-  try {
-    const parsed = JSON.parse(raw) as StoredUser[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+/** Profile data for the signed-in user (never includes the password hash). */
+export async function findUserProfile(id: string) {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      createdAt: true,
+      passwordHash: true,
+      accounts: { select: { provider: true } },
+    },
+  });
+  if (!user) return null;
+  const { passwordHash, accounts, ...rest } = user;
+  return {
+    ...rest,
+    hasPassword: Boolean(passwordHash),
+    providers: accounts.map((account) => account.provider),
+  };
 }
 
-async function writeUsers(users: StoredUser[]) {
-  await ensureStore();
-  const data = JSON.stringify(users, null, 2);
-  // Sync tools (e.g. OneDrive) can briefly lock the file on Windows, so retry transient errors
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await fs.writeFile(USERS_FILE, data, "utf8");
-      return;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (attempt >= 5 || !["EBUSY", "EPERM", "EACCES"].includes(code ?? "")) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-    }
-  }
-}
+export async function createUser(input: { name: string; email: string; passwordHash: string }): Promise<PublicUser> {
+  const email = normalizeEmail(input.email);
 
-export async function findUserByEmail(email: string) {
-  const users = await readUsers();
-  return users.find((user) => user.email.toLowerCase() === email.toLowerCase()) ?? null;
-}
-
-export async function createUser(input: {
-  name: string;
-  email: string;
-  passwordHash: string;
-}) {
-  const users = await readUsers();
-  const email = input.email.toLowerCase().trim();
-
-  const existing = users.find((user) => user.email === email);
+  const existing = await prisma.user.findUnique({ where: { email }, select: { passwordHash: true } });
   if (existing) {
     throw new Error(existing.passwordHash ? "EMAIL_EXISTS" : "EMAIL_EXISTS_OAUTH");
   }
 
-  const user: StoredUser = {
-    id: crypto.randomUUID(),
-    name: input.name.trim(),
-    email,
-    passwordHash: input.passwordHash,
-    createdAt: new Date().toISOString(),
-  };
-
-  users.push(user);
-  await writeUsers(users);
-
-  return { id: user.id, name: user.name, email: user.email };
+  try {
+    const user = await prisma.user.create({
+      data: { name: input.name.trim(), email, passwordHash: input.passwordHash },
+      select: { id: true, name: true, email: true },
+    });
+    return user;
+  } catch (error) {
+    // Lost a race with a concurrent registration for the same email
+    if (isUniqueViolation(error)) throw new Error("EMAIL_EXISTS");
+    throw error;
+  }
 }
 
-/** Find or create the local user record for a Google sign-in. */
-export async function upsertOAuthUser(input: { name?: string | null; email: string; image?: string | null }) {
-  const users = await readUsers();
-  const email = input.email.toLowerCase().trim();
-  let user = users.find((existing) => existing.email === email);
+/**
+ * Find or create the local user for a Google sign-in and link the Google account.
+ * Google emails are only accepted when verified (checked in the signIn callback),
+ * so matching an existing user by email is safe and avoids duplicate accounts.
+ */
+export async function upsertGoogleUser(input: {
+  providerAccountId: string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}): Promise<PublicUser> {
+  const email = normalizeEmail(input.email);
 
-  if (!user) {
-    user = {
-      id: crypto.randomUUID(),
-      name: input.name?.trim() || email.split("@")[0],
-      email,
-      image: input.image ?? undefined,
-      createdAt: new Date().toISOString(),
-    };
-    users.push(user);
-    await writeUsers(users);
-  } else if (input.image && !user.image) {
-    user.image = input.image;
-    await writeUsers(users);
-  }
+  return prisma.$transaction(async (tx) => {
+    const linked = await tx.account.findUnique({
+      where: { provider_providerAccountId: { provider: "google", providerAccountId: input.providerAccountId } },
+      select: { user: { select: { id: true, name: true, email: true, image: true } } },
+    });
+    if (linked) return { ...linked.user, image: linked.user.image ?? undefined };
 
-  return { id: user.id, name: user.name, email: user.email, image: user.image };
+    const user =
+      (await tx.user.findUnique({ where: { email }, select: { id: true, name: true, email: true, image: true } })) ??
+      (await tx.user.create({
+        data: { name: input.name?.trim() || email.split("@")[0], email, image: input.image ?? null },
+        select: { id: true, name: true, email: true, image: true },
+      }));
+
+    await tx.account.create({
+      data: { userId: user.id, type: "oidc", provider: "google", providerAccountId: input.providerAccountId },
+    });
+
+    if (input.image && !user.image) {
+      await tx.user.update({ where: { id: user.id }, data: { image: input.image } });
+      user.image = input.image;
+    }
+
+    return { ...user, image: user.image ?? undefined };
+  });
 }

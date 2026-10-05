@@ -9,8 +9,9 @@ export async function proxy(req: NextRequest) {
   const { pathname, search, searchParams } = req.nextUrl;
   const isAuthPage = AUTH_PAGES.includes(pathname);
   const isPackageBooking = pathname === "/contact" && searchParams.has("package");
+  const isProtected = isPackageBooking || pathname.startsWith("/profile") || pathname.startsWith("/admin");
 
-  if (!isAuthPage && !isPackageBooking) {
+  if (!isAuthPage && !isProtected) {
     return NextResponse.next();
   }
 
@@ -37,5 +38,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/contact", "/login", "/register"],
+  matcher: ["/contact", "/login", "/register", "/profile/:path*", "/admin/:path*"],
 };

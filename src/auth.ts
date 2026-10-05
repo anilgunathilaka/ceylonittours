@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import { z } from "zod";
+import { isAdminEmail } from "@/lib/auth/roles";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -22,16 +23,16 @@ const providers: Provider[] = [
       const parsed = credentialsSchema.safeParse(credentials);
       if (!parsed.success) return null;
 
-      // Dynamic import keeps Node fs out of the Edge middleware bundle
-      const { findUserByEmail } = await import("@/lib/auth/users");
-      const user = await findUserByEmail(parsed.data.email);
+      // Dynamic import keeps the database client out of any bundle that only needs auth config
+      const { findUserForLogin } = await import("@/lib/auth/users");
+      const user = await findUserForLogin(parsed.data.email);
       // Google-only accounts have no password to check against
       if (!user?.passwordHash) return null;
 
       const valid = await compare(parsed.data.password, user.passwordHash);
       if (!valid) return null;
 
-      return { id: user.id, name: user.name, email: user.email, image: user.image };
+      return { id: user.id, name: user.name, email: user.email, image: user.image ?? undefined };
     },
   }),
 ];
@@ -57,19 +58,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (account?.provider === "google" && token.email) {
-        // Link Google sign-ins to the local user record (matched by email)
-        const { upsertOAuthUser } = await import("@/lib/auth/users");
-        const stored = await upsertOAuthUser({ name: token.name, email: token.email, image: token.picture });
+        // Link the Google account to the local user (matched by verified email, no duplicates)
+        const { upsertGoogleUser } = await import("@/lib/auth/users");
+        const stored = await upsertGoogleUser({
+          providerAccountId: account.providerAccountId,
+          email: token.email,
+          name: token.name,
+          image: token.picture,
+        });
         token.id = stored.id;
         token.name = stored.name;
       } else if (user) {
         token.id = user.id;
       }
+      // Re-evaluated on every token refresh so ADMIN_EMAILS changes apply without re-login
+      token.isAdmin = isAdminEmail(token.email);
       return token;
     },
     session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+      }
+      if (session.user) {
+        session.user.isAdmin = Boolean(token.isAdmin);
       }
       return session;
     },

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { CalendarDays, CheckCircle2, Mail, MessageSquare, Phone, User } from "lucide-react";
@@ -13,6 +14,7 @@ export function ContactForm() {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const packageSlug = searchParams.get("package");
   const packageTitle = searchParams.get("title");
   const travelDate = searchParams.get("date");
 
@@ -49,7 +51,11 @@ export function ContactForm() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          packageSlug: packageSlug ?? undefined,
+          packageTitle: packageTitle ?? undefined,
+        }),
       });
       if (!res.ok) throw new Error("Request failed");
       setStatus("success");
@@ -67,6 +73,11 @@ export function ContactForm() {
         <p className="max-w-sm text-sm text-slate">
           Thanks for reaching out — a trip designer will reply within one business day.
         </p>
+        {packageSlug && session?.user && (
+          <Link href="/profile" className="text-sm font-semibold text-primary hover:underline">
+            View your booking requests
+          </Link>
+        )}
       </div>
     );
   }

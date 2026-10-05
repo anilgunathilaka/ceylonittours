@@ -24,8 +24,11 @@
 .DS_Store
 *.pem
 
-# local auth user store
+# legacy JSON user/booking store (kept only for migration + backups)
 /data/
+
+# generated Prisma client (created by `prisma generate` / postinstall)
+/src/generated/
 
 # debug
 npm-debug.log*
@@ -36,6 +39,7 @@ yarn-error.log*
 # env files
 .env
 .env*
+!.env.example
 
 # vercel
 .vercel

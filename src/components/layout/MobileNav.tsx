@@ -8,6 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import { visibleNavLinks } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { UserAvatar } from "@/components/auth/UserAvatar";
 
 export function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
@@ -62,16 +63,41 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
                 </Link>
               ))}
               {session?.user ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    void signOut({ callbackUrl: "/" });
-                  }}
-                  className="rounded-xl px-4 py-3 text-left text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary"
-                >
-                  Sign out ({session.user.name?.split(" ")[0] ?? "Account"})
-                </button>
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary",
+                      pathname === "/profile" && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    <UserAvatar name={session.user.name} image={session.user.image} size={28} />
+                    My Profile
+                  </Link>
+                  {session.user.isAdmin && (
+                    <Link
+                      href="/admin/bookings"
+                      onClick={onClose}
+                      className={cn(
+                        "rounded-xl px-4 py-3 text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary",
+                        pathname.startsWith("/admin") && "bg-primary/10 text-primary",
+                      )}
+                    >
+                      Manage Bookings
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      void signOut({ redirectTo: "/" });
+                    }}
+                    className="rounded-xl px-4 py-3 text-left text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary"
+                  >
+                    Log out
+                  </button>
+                </>
               ) : (
                 <>
                   <Link

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { registerSchema } from "@/lib/validation/schemas";
 import { createUser } from "@/lib/auth/users";
+import { publicErrorMessage } from "@/lib/errors";
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid registration details", issues: parsed.error.flatten() },
+        { error: parsed.error.issues[0]?.message ?? "Invalid registration details" },
         { status: 400 },
       );
     }
@@ -35,7 +36,6 @@ export async function POST(request: Request) {
     }
 
     console.error("Registration failed:", error);
-    const detail = process.env.NODE_ENV === "development" && error instanceof Error ? ` (${error.message})` : "";
-    return NextResponse.json({ error: `Unable to create account.${detail}` }, { status: 500 });
+    return NextResponse.json({ error: publicErrorMessage("Unable to create account.", error) }, { status: 500 });
   }
 }

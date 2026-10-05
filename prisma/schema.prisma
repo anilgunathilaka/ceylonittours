@@ -1,0 +1,104 @@
+// Ceylon IT Tours — application data (users, OAuth links, bookings).
+// Website content (packages, blogs, ...) stays in Sanity.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  /// Always stored lower-cased and trimmed, so the unique index is case-insensitive in practice
+  email        String   @unique
+  phone        String?
+  /// bcrypt hash; null for accounts created through Google sign-in
+  passwordHash String?
+  image        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  accounts       Account[]
+  bookings       Booking[]
+  historyEntries BookingStatusHistory[]
+
+  @@map("users")
+}
+
+/// External identity providers linked to a user (currently Google)
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Booking {
+  id                  String        @id @default(uuid())
+  userId              String
+  /// Sanity/local package slug, plus a title snapshot taken at booking time
+  packageSlug         String
+  packageTitle        String
+  customerName        String
+  customerEmail       String
+  customerPhone       String?
+  message             String
+  /// Date the customer asked for
+  requestedTravelDate DateTime?     @db.Date
+  /// Final date set by an admin (initially the requested date)
+  travelDate          DateTime?     @db.Date
+  status              BookingStatus @default(PENDING)
+  /// Latest customer-facing message from the team
+  adminMessage        String?
+  confirmedAt         DateTime?
+  confirmedBy         String?
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  /// Optimistic-concurrency counter: every admin update must match the version it was based on
+  version             Int           @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  user    User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  history BookingStatusHistory[]
+
+  @@index([userId, createdAt])
+  @@index([status, travelDate])
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  id          String        @id @default(uuid())
+  bookingId   String
+  status      BookingStatus
+  /// Admin email, or "customer" for the original request
+  actorEmail  String
+  actorUserId String?
+  message     String?
+  travelDate  DateTime?     @db.Date
+  createdAt   DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_status_history")
+}

@@ -1,36 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ceylon IT Tours
 
-## Getting Started
+Next.js 16 (App Router) site with Sanity CMS for content, Auth.js (email/password + Google) for accounts,
+and PostgreSQL (Prisma 7) for users and bookings.
 
-First, run the development server:
+| Concern | Where |
+|---|---|
+| Website content (packages, blogs, …) | Sanity — Studio at `/cms` |
+| Users, Google links, bookings, booking history | PostgreSQL — `prisma/schema.prisma` |
+| Auth | `src/auth.ts`, `src/lib/auth/*`, route protection in `src/proxy.ts` |
+| Bookings | `src/lib/bookings.ts`, created from `/api/contact`, managed at `/admin/bookings` |
+| Email (Resend) | `src/lib/email.ts`, `src/app/api/contact/route.ts` |
+
+Requires **Node.js 20.19+, 22.12+ or 24+** (Prisma 7 does not support odd-numbered Node releases for its CLI).
+
+## Local development
 
 ```bash
+npm install                      # also runs `prisma generate`
+cp .env.example .env.local       # fill in values (see below)
+
+npm run db:dev                   # start a local Postgres (no Docker needed); copy its TCP URL into DATABASE_URL
+npm run db:migrate               # apply migrations to the dev database
+npm run db:migrate-json          # one-off: import legacy data/users.json + data/bookings.json
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npx prisma dev ls` shows the local instances and their URLs. Use the **TCP** `postgres://…` URL, not the `prisma+postgres://` one.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See `.env.example`. Summary:
 
-## Learn More
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | yes | Direct Postgres URL. On serverless hosts use the provider's **pooled** URL. |
+| `AUTH_SECRET` | yes | `npx auth secret` |
+| `AUTH_URL` | production | Public site URL, used for links in emails |
+| `ADMIN_EMAILS` | for admins | Comma-separated; case-insensitive |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | optional | Google button is hidden when unset |
+| `RESEND_API_KEY` / `EMAIL_FROM` | optional | Without a key, emails are skipped (logged) and everything else still works |
+| `NEXT_PUBLIC_SANITY_PROJECT_ID` / `NEXT_PUBLIC_SANITY_DATASET` | yes | Sanity CMS |
 
-To learn more about Next.js, take a look at the following resources:
+## Admins
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. The person registers (or signs in with Google) on the site.
+2. Add their email to `ADMIN_EMAILS` and restart/redeploy.
+3. They get **Manage Bookings** in the profile menu → `/admin/bookings`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Admin access is re-checked on the server for every admin page load and every admin action
+(email must be in `ADMIN_EMAILS` **and** belong to an existing account). Removing an email takes effect immediately.
 
-## Deploy on Vercel
+## Booking flow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Customer clicks **Check Availability** → (login) → contact form → booking saved as **Pending** →
+admin confirms (final travel date required) / cancels / reopens with a customer message →
+change + history entry committed in one transaction → optional Resend email → customer sees it on `/profile`.
+If two admins edit the same booking, the second (stale) submission is rejected and asked to reload.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Migrating the legacy JSON data
+
+```bash
+npm run db:migrate-json -- --dry-run   # report only
+npm run db:migrate-json                # backs up data/*.json to data/backup/<timestamp>/ then imports
+```
+
+Safe to re-run (existing ids are skipped; users with an existing email are merged, not duplicated).
+The JSON files are never deleted — remove them yourself once you've verified the import.
+
+## Google OAuth
+
+In Google Cloud Console → Credentials → OAuth client ID (Web application), add redirect URIs:
+
+- `http://localhost:3000/api/auth/callback/google`
+- `https://<your-domain>/api/auth/callback/google`
+
+Only verified Google emails are accepted. A Google sign-in with the same email as an existing account links to that account.
+
+## Resend
+
+Verify your sending domain in Resend, then set `RESEND_API_KEY` and `EMAIL_FROM` (an address on that domain).
+Enquiries go to `hello@ceylonittours.com`; booking confirmations/cancellations go to the customer's account email.
+
+## Tests
+
+```bash
+npm run typecheck && npm run lint
+npm test                         # unit + database integration tests (Vitest)
+npm run test:e2e                 # end-to-end against a running server (see scripts/e2e.mjs)
+```
+
+Integration tests **wipe** their database, so they need a separate Postgres instance:
+
+```bash
+npx prisma dev --name ceylonittours-test --detach      # note its TCP URL
+export TEST_DATABASE_URL=postgres://...                 # that URL
+DATABASE_URL=$TEST_DATABASE_URL npx prisma migrate deploy
+npm test
+```
+
+The test config refuses to run if `TEST_DATABASE_URL` points at the same server as `DATABASE_URL` in `.env.local`.
+
+## Production
+
+```bash
+npm ci
+npm run db:deploy        # prisma migrate deploy — run once per release, before starting the new version
+npm run build            # prisma generate && next build
+npm start
+```
+
+On Vercel: set the environment variables, use a pooled `DATABASE_URL`, and run `npm run db:deploy`
+from CI or locally against the production database when migrations change.
