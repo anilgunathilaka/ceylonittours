@@ -9,12 +9,13 @@ import Link from "next/link";
 import { Lock, Mail, User } from "lucide-react";
 import { TextField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
+import { DEFAULT_AUTH_REDIRECT, safeCallbackUrl } from "@/lib/auth/redirect";
 import { registerSchema, type RegisterValues } from "@/lib/validation/schemas";
 
 export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/tour-packages";
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -96,7 +97,7 @@ export function RegisterForm() {
       <p className="text-center text-sm text-slate">
         Already have an account?{" "}
         <Link
-          href={`/login${callbackUrl !== "/tour-packages" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`}
+          href={`/login${callbackUrl !== DEFAULT_AUTH_REDIRECT ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`}
           className="font-semibold text-primary hover:underline"
         >
           Sign in
