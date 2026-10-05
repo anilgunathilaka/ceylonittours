@@ -10,13 +10,19 @@ import { Lock, Mail } from "lucide-react";
 import { TextField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
 import { DEFAULT_AUTH_REDIRECT, safeCallbackUrl } from "@/lib/auth/redirect";
+import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { loginSchema, type LoginValues } from "@/lib/validation/schemas";
 
-export function LoginForm() {
+export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(() => {
+    const error = searchParams.get("error");
+    if (!error) return null;
+    if (error === "AccessDenied") return "Google sign-in was denied. Please use a verified Google account.";
+    return "Sign-in failed. Please try again.";
+  });
 
   const {
     register,
@@ -43,6 +49,13 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+      {googleEnabled && (
+        <>
+          <GoogleSignInButton callbackUrl={callbackUrl} label="Continue with Google" />
+          <AuthDivider />
+        </>
+      )}
+
       <TextField
         label="Email"
         type="email"

@@ -27,8 +27,15 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.message === "EMAIL_EXISTS") {
       return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
     }
+    if (error instanceof Error && error.message === "EMAIL_EXISTS_OAUTH") {
+      return NextResponse.json(
+        { error: "This email is linked to a Google account. Please continue with Google." },
+        { status: 409 },
+      );
+    }
 
     console.error("Registration failed:", error);
-    return NextResponse.json({ error: "Unable to create account." }, { status: 500 });
+    const detail = process.env.NODE_ENV === "development" && error instanceof Error ? ` (${error.message})` : "";
+    return NextResponse.json({ error: `Unable to create account.${detail}` }, { status: 500 });
   }
 }

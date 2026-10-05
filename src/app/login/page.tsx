@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LogIn } from "lucide-react";
+import { isGoogleAuthEnabled } from "@/auth";
 import { Container } from "@/components/ui/Container";
 import { LoginForm } from "@/components/auth/LoginForm";
 
@@ -25,7 +26,7 @@ export default function LoginPage() {
 
         <div className="rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-8">
           <Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-midnight/5" />}>
-            <LoginForm />
+            <LoginForm googleEnabled={isGoogleAuthEnabled} />
           </Suspense>
         </div>
       </Container>

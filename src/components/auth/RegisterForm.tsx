@@ -10,9 +10,10 @@ import { Lock, Mail, User } from "lucide-react";
 import { TextField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
 import { DEFAULT_AUTH_REDIRECT, safeCallbackUrl } from "@/lib/auth/redirect";
+import { AuthDivider, GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { registerSchema, type RegisterValues } from "@/lib/validation/schemas";
 
-export function RegisterForm() {
+export function RegisterForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
@@ -56,6 +57,13 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
+      {googleEnabled && (
+        <>
+          <GoogleSignInButton callbackUrl={callbackUrl} label="Sign up with Google" />
+          <AuthDivider />
+        </>
+      )}
+
       <TextField
         label="Full Name"
         autoComplete="name"

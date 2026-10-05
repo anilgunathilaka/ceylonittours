@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { UserPlus } from "lucide-react";
+import { isGoogleAuthEnabled } from "@/auth";
 import { Container } from "@/components/ui/Container";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 
@@ -27,7 +28,7 @@ export default function RegisterPage() {
 
         <div className="rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-8">
           <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-midnight/5" />}>
-            <RegisterForm />
+            <RegisterForm googleEnabled={isGoogleAuthEnabled} />
           </Suspense>
         </div>
       </Container>
