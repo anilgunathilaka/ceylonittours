@@ -10,14 +10,25 @@ function createPrismaClient() {
   return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 }
 
-// Reuse one client across hot reloads in development
+// One client per process (also survives hot reloads in development)
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getPrismaClient() {
+  globalForPrisma.prisma ??= createPrismaClient();
+  return globalForPrisma.prisma;
 }
+
+/**
+ * Created lazily on first use, so importing this module never needs DATABASE_URL.
+ * (`next build` imports route modules to collect page data; it must not require a database.)
+ */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 /** Postgres unique-constraint violation raised by Prisma */
 export function isUniqueViolation(error: unknown) {

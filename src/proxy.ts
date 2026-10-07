@@ -8,7 +8,8 @@ const AUTH_PAGES = ["/login", "/register"];
 export async function proxy(req: NextRequest) {
   const { pathname, search, searchParams } = req.nextUrl;
   const isAuthPage = AUTH_PAGES.includes(pathname);
-  const isPackageBooking = pathname === "/contact" && searchParams.has("package");
+  // Tour pages are public; only the booking step (/contact with a package or a chosen date) needs login
+  const isPackageBooking = pathname === "/contact" && (searchParams.has("package") || searchParams.has("date"));
   const isProtected = isPackageBooking || pathname.startsWith("/profile") || pathname.startsWith("/admin");
 
   if (!isAuthPage && !isProtected) {

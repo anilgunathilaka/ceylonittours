@@ -11,7 +11,7 @@ import { TextField } from "@/components/ui/FormField";
 import { contactSchema, type ContactValues } from "@/lib/validation/schemas";
 
 export function ContactForm() {
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "success" | "error" | "login">("idle");
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const packageSlug = searchParams.get("package");
@@ -57,6 +57,10 @@ export function ContactForm() {
           packageTitle: packageTitle ?? undefined,
         }),
       });
+      if (res.status === 401) {
+        setStatus("login");
+        return;
+      }
       if (!res.ok) throw new Error("Request failed");
       setStatus("success");
       reset();
@@ -125,6 +129,19 @@ export function ContactForm() {
       >
         {isSubmitting ? "Sending…" : "Send Enquiry"}
       </button>
+
+      {status === "login" && (
+        <p className="text-center text-sm font-medium text-accent-dark">
+          Your session has expired.{" "}
+          <Link
+            href={`/login?callbackUrl=${encodeURIComponent(`/contact?${searchParams.toString()}`)}`}
+            className="underline"
+          >
+            Log in again
+          </Link>{" "}
+          to send your booking request.
+        </p>
+      )}
 
       {status === "error" && (
         <p className="text-center text-sm font-medium text-accent-dark">

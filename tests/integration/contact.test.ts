@@ -50,9 +50,16 @@ describe("POST /api/contact", () => {
     expect(await prisma.booking.count()).toBe(0);
   });
 
-  it("does not create bookings for logged-out visitors but still accepts the enquiry", async () => {
+  it("requires login to book a package", async () => {
     authMock.mockResolvedValue(null);
     const res = await post({ ...enquiry, packageSlug: SLUG });
+    expect(res.status).toBe(401);
+    expect(await prisma.booking.count()).toBe(0);
+  });
+
+  it("keeps general enquiries (no package) public", async () => {
+    authMock.mockResolvedValue(null);
+    const res = await post(enquiry);
     expect(res.status).toBe(200);
     expect(await prisma.booking.count()).toBe(0);
   });

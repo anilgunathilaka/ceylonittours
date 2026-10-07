@@ -26,8 +26,13 @@ export async function POST(request: Request) {
   }
   const packageTitle = pkg?.title;
 
-  // Package enquiries from signed-in users are saved as pending bookings for their profile
+  // Booking a package requires an account; general enquiries (no package) stay public
   const session = await auth();
+  if (pkg && !session?.user?.id) {
+    return NextResponse.json({ error: "Please log in to book this tour" }, { status: 401 });
+  }
+
+  // Package bookings are saved as pending bookings on the customer's profile
   if (pkg && session?.user?.id) {
     try {
       await createBooking({
