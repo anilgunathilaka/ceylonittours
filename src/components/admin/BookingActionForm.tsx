@@ -5,6 +5,7 @@ import { CalendarDays, Check, RotateCcw, X } from "lucide-react";
 import { updateBookingAction, type UpdateBookingState } from "@/app/admin/bookings/actions";
 import type { BookingStatus } from "@/lib/bookings";
 import { cn } from "@/lib/utils";
+import { useAdminFlash } from "@/components/admin/AdminFlash";
 
 const initialState: UpdateBookingState = { ok: false };
 
@@ -20,7 +21,13 @@ export function BookingActionForm({
   /** Version the admin is looking at — stale submissions are rejected server-side */
   version: number;
 }) {
-  const [state, formAction, pending] = useActionState(updateBookingAction, initialState);
+  const flash = useAdminFlash();
+  const [state, formAction, pending] = useActionState(async (prev: UpdateBookingState, formData: FormData) => {
+    const result = await updateBookingAction(prev, formData);
+    // Show success at page level too: the booking may move to another tab and unmount
+    if (result.ok && result.message) flash(result.message);
+    return result;
+  }, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

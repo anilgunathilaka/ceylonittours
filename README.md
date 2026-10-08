@@ -11,7 +11,9 @@ and PostgreSQL (Prisma 7) for users and bookings.
 | Bookings | `src/lib/bookings.ts`, created from `/api/contact`, managed at `/admin/bookings` |
 | Email (Resend) | `src/lib/email.ts`, `src/app/api/contact/route.ts` |
 
-Requires **Node.js 20.19+, 22.12+ or 24+** (Prisma 7 does not support odd-numbered Node releases for its CLI).
+Requires **Node.js 24 LTS** (see `.nvmrc`; with nvm-windows: `nvm install 24.21.0 && nvm use 24.21.0`).
+npm 11 only runs dependency install scripts listed under `allowScripts` in `package.json`; after upgrading one of
+those packages, run `npm install-scripts ls` and approve the new version.
 
 ## Local development
 
