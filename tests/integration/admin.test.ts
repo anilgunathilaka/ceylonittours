@@ -6,7 +6,17 @@ import { fakeSession, makeUser, resetDatabase } from "../helpers";
 // --- Mocks for Next.js / Auth.js runtime pieces -----------------------------
 const authMock = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: authMock }));
-vi.mock("next/cache", () => ({ refresh: vi.fn() }));
+// redirect() throws in Next.js; capture the target URL instead
+class RedirectSignal extends Error {
+  constructor(public url: string) {
+    super("NEXT_REDIRECT");
+  }
+}
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => {
+    throw new RedirectSignal(url);
+  },
+}));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ host: "localhost:3000" }) }));
 
 const sendMock = vi.hoisted(() => vi.fn());
@@ -49,7 +59,17 @@ function form(fields: Record<string, string>) {
 }
 
 const confirmForm = (bookingId: string, extra: Record<string, string> = {}) =>
-  form({ bookingId, status: "confirmed", version: "0", message: "Pickup 7 AM", ...extra });
+  form({ bookingId, status: "confirmed", version: "0", message: "Pickup 7 AM", filter: "pending", ...extra });
+
+/** Runs the action: success ends in a redirect (returned as { redirect }), errors return state. */
+async function act(data: FormData) {
+  try {
+    return await updateBookingAction({ ok: false }, data);
+  } catch (error) {
+    if (error instanceof RedirectSignal) return { redirect: error.url };
+    throw error;
+  }
+}
 
 describe("getAdminSession (server-side admin check)", () => {
   it("denies logged-out users", async () => {
@@ -117,13 +137,9 @@ describe("updateBookingAction as admin", () => {
     const { admin, booking } = await setup();
     authMock.mockResolvedValue(fakeSession(admin));
 
-    const result = await updateBookingAction(
-      { ok: false },
-      confirmForm(booking.id, { notify: "on", travelDate: "2026-12-21" }),
-    );
+    const result = await act(confirmForm(booking.id, { notify: "on", travelDate: "2026-12-21" }));
 
-    expect(result.ok).toBe(true);
-    expect(result.message).toContain("Email not sent");
+    expect(result).toEqual({ redirect: "/admin/bookings?status=pending&notice=confirmed&email=not-sent" });
     expect(sendMock).not.toHaveBeenCalled();
     const row = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id }, include: { history: true } });
     expect(row).toMatchObject({ status: "CONFIRMED", confirmedBy: "admin@example.test", adminMessage: "Pickup 7 AM" });
@@ -137,9 +153,9 @@ describe("updateBookingAction as admin", () => {
     process.env.RESEND_API_KEY = "re_test";
     sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
 
-    const result = await updateBookingAction({ ok: false }, confirmForm(booking.id, { notify: "on" }));
+    const result = await act(confirmForm(booking.id, { notify: "on", filter: "upcoming" }));
 
-    expect(result).toEqual({ ok: true, message: "Booking confirmed. Customer emailed." });
+    expect(result).toEqual({ redirect: "/admin/bookings?status=upcoming&notice=confirmed&email=sent" });
     expect(sendMock).toHaveBeenCalledTimes(1);
     const email = sendMock.mock.calls[0][0];
     expect(email.to).toBe("customer@example.test");
@@ -151,8 +167,8 @@ describe("updateBookingAction as admin", () => {
     const { admin, booking } = await setup();
     authMock.mockResolvedValue(fakeSession(admin));
     process.env.RESEND_API_KEY = "re_test";
-    const result = await updateBookingAction({ ok: false }, confirmForm(booking.id));
-    expect(result).toEqual({ ok: true, message: "Booking confirmed." });
+    const result = await act(confirmForm(booking.id));
+    expect(result).toEqual({ redirect: "/admin/bookings?status=pending&notice=confirmed" });
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -162,10 +178,9 @@ describe("updateBookingAction as admin", () => {
     process.env.RESEND_API_KEY = "re_test";
     sendMock.mockRejectedValue(new Error("Resend is down"));
 
-    const result = await updateBookingAction({ ok: false }, confirmForm(booking.id, { status: "cancelled", notify: "on" }));
+    const result = await act(confirmForm(booking.id, { status: "cancelled", notify: "on" }));
 
-    expect(result.ok).toBe(true);
-    expect(result.message).toContain("Email not sent");
+    expect(result).toEqual({ redirect: "/admin/bookings?status=pending&notice=cancelled&email=not-sent" });
     const row = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
     expect(row).toMatchObject({ status: "CANCELLED", cancelledBy: "admin@example.test" });
   });
@@ -173,21 +188,28 @@ describe("updateBookingAction as admin", () => {
   it("reports a conflict when another admin already changed the booking", async () => {
     const { admin, booking } = await setup();
     authMock.mockResolvedValue(fakeSession(admin));
-    expect((await updateBookingAction({ ok: false }, confirmForm(booking.id))).ok).toBe(true);
+    expect(await act(confirmForm(booking.id))).toHaveProperty("redirect");
     // Second submission still based on version 0
-    const stale = await updateBookingAction({ ok: false }, confirmForm(booking.id, { status: "cancelled" }));
+    const stale = await act(confirmForm(booking.id, { status: "cancelled" }));
     expect(stale).toEqual({
       ok: false,
       message: "This booking was changed by someone else. Reload the page and try again.",
     });
   });
 
+  it("only redirects to known admin tabs (no open redirect via the filter field)", async () => {
+    const { admin, booking } = await setup();
+    authMock.mockResolvedValue(fakeSession(admin));
+    const result = await act(confirmForm(booking.id, { filter: "https://evil.example/phish" }));
+    expect(result).toEqual({ redirect: "/admin/bookings?status=pending&notice=confirmed" });
+  });
+
   it("reopens a handled booking with a new history entry", async () => {
     const { admin, booking } = await setup();
     authMock.mockResolvedValue(fakeSession(admin));
-    await updateBookingAction({ ok: false }, confirmForm(booking.id, { status: "cancelled" }));
-    const result = await updateBookingAction({ ok: false }, form({ bookingId: booking.id, status: "pending", version: "1" }));
-    expect(result).toEqual({ ok: true, message: "Booking moved back to pending." });
+    await act(confirmForm(booking.id, { status: "cancelled" }));
+    const result = await act(form({ bookingId: booking.id, status: "pending", version: "1", filter: "cancelled" }));
+    expect(result).toEqual({ redirect: "/admin/bookings?status=cancelled&notice=pending" });
     const history = await prisma.bookingStatusHistory.findMany({ where: { bookingId: booking.id }, orderBy: { createdAt: "asc" } });
     expect(history.map((h) => h.status)).toEqual(["PENDING", "CANCELLED", "PENDING"]);
   });

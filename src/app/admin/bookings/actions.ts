@@ -1,13 +1,14 @@
 "use server";
 
 import { headers } from "next/headers";
-import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth/admin";
 import { BookingConflictError, BookingValidationError, updateBookingStatus } from "@/lib/bookings";
 import { sendBookingStatusEmail } from "@/lib/email";
 import { publicErrorMessage } from "@/lib/errors";
 import { isoDateSchema } from "@/lib/validation/schemas";
+import { BOOKING_FILTERS, noticeUrl } from "@/lib/admin/notices";
 
 export type UpdateBookingState = {
   ok: boolean;
@@ -21,6 +22,8 @@ const updateSchema = z.object({
   travelDate: isoDateSchema.optional(),
   version: z.coerce.number().int().min(0),
   notify: z.boolean(),
+  /** Filter tab to return to after a successful update */
+  filter: z.enum(BOOKING_FILTERS).catch("pending"),
 });
 
 async function getSiteUrl() {
@@ -48,12 +51,13 @@ export async function updateBookingAction(
     travelDate: formData.get("travelDate") || undefined,
     version: formData.get("version"),
     notify: formData.get("notify") === "on",
+    filter: formData.get("filter"),
   });
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const { bookingId, status, message, travelDate, version, notify } = parsed.data;
+  const { bookingId, status, message, travelDate, version, notify, filter } = parsed.data;
   const actorEmail = session.user.email ?? session.user.id;
 
   let booking;
@@ -89,13 +93,7 @@ export async function updateBookingAction(
     emailed = await sendBookingStatusEmail(booking, await getSiteUrl());
   }
 
-  refresh();
-
-  const verb = status === "confirmed" ? "confirmed" : status === "cancelled" ? "cancelled" : "moved back to pending";
-  const emailNote = shouldEmail
-    ? emailed
-      ? " Customer emailed."
-      : " Email not sent (email is not configured or failed) — the message is still shown on the customer's profile."
-    : "";
-  return { ok: true, message: `Booking ${verb}.${emailNote}` };
+  // Redirect back to the same tab with a success notice. Unlike returning state, this also
+  // works without JavaScript and survives the booking moving to another tab.
+  redirect(noticeUrl(filter, status, shouldEmail ? (emailed ? "sent" : "not-sent") : undefined));
 }

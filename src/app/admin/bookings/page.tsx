@@ -5,7 +5,8 @@ import { CalendarDays, Clock, History, Mail, MessageSquare, Phone, ShieldCheck, 
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { BookingActionForm } from "@/components/admin/BookingActionForm";
-import { AdminFlashProvider } from "@/components/admin/AdminFlash";
+import { AdminNotice } from "@/components/admin/AdminNotice";
+import { noticeMessage } from "@/lib/admin/notices";
 import { getAdminSession } from "@/lib/auth/admin";
 import { getAllBookings, type Booking, type BookingStatus } from "@/lib/bookings";
 import { formatDisplayDate, toISODate } from "@/lib/date";
@@ -52,12 +53,13 @@ function formatTimestamp(iso: string) {
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<{ status?: string; notice?: string; email?: string }> }) {
   if (!(await getAdminSession())) {
     notFound();
   }
 
-  const { status } = await searchParams;
+  const { status, notice, email } = await searchParams;
+  const noticeText = noticeMessage(notice, email);
   const filter: Filter = filters.some((f) => f.value === status) ? (status as Filter) : "pending";
   const today = toISODate(new Date());
 
@@ -97,123 +99,124 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
           ))}
         </nav>
 
-        <AdminFlashProvider>
-          {bookings.length === 0 ? (
-            <p className="rounded-3xl border border-dashed border-border bg-surface px-6 py-16 text-center text-sm text-slate">
-              No {filter === "all" ? "" : `${filters.find((f) => f.value === filter)?.label.toLowerCase()} `}bookings.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {bookings.map((booking) => {
-                const isPast = Boolean(booking.travelDate && booking.travelDate < today);
-                const badge = isPast && booking.status === "confirmed" ? { label: "Completed", tone: "nature" as const } : statusBadge[booking.status];
+        {noticeText && <AdminNotice key={`${notice}-${email}`} message={noticeText} />}
 
-                return (
-                  <article key={booking.id} className="rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-7">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <h2 className="font-display text-lg font-semibold text-midnight">
-                          <Link href={`/tour-packages/${booking.packageSlug}`} className="hover:text-primary hover:underline">
-                            {booking.packageTitle}
-                          </Link>
-                        </h2>
-                        <p className="text-xs text-slate">
-                          Requested {formatTimestamp(booking.createdAt)} · Ref {booking.id.slice(0, 8)}
-                        </p>
-                      </div>
-                      <Badge tone={badge.tone}>{badge.label}</Badge>
+        {bookings.length === 0 ? (
+          <p className="rounded-3xl border border-dashed border-border bg-surface px-6 py-16 text-center text-sm text-slate">
+            No {filter === "all" ? "" : `${filters.find((f) => f.value === filter)?.label.toLowerCase()} `}bookings.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {bookings.map((booking) => {
+              const isPast = Boolean(booking.travelDate && booking.travelDate < today);
+              const badge = isPast && booking.status === "confirmed" ? { label: "Completed", tone: "nature" as const } : statusBadge[booking.status];
+
+              return (
+                <article key={booking.id} className="rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-7">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-display text-lg font-semibold text-midnight">
+                        <Link href={`/tour-packages/${booking.packageSlug}`} className="hover:text-primary hover:underline">
+                          {booking.packageTitle}
+                        </Link>
+                      </h2>
+                      <p className="text-xs text-slate">
+                        Requested {formatTimestamp(booking.createdAt)} · Ref {booking.id.slice(0, 8)}
+                      </p>
                     </div>
+                    <Badge tone={badge.tone}>{badge.label}</Badge>
+                  </div>
 
-                    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                        <div className="flex items-center gap-2 text-midnight">
-                          <User size={16} className="text-slate" />
-                          <dt className="sr-only">Customer</dt>
-                          <dd className="font-medium">{booking.customerName}</dd>
-                        </div>
-                        <div className="flex items-center gap-2 text-midnight">
-                          <CalendarDays size={16} className="text-slate" />
-                          <dt className="sr-only">Travel date</dt>
-                          <dd>
-                            {booking.travelDate ? formatDisplayDate(booking.travelDate) : "No date yet"}
-                            {booking.requestedTravelDate && booking.requestedTravelDate !== booking.travelDate && (
-                              <span className="block text-xs text-slate">
-                                Requested {formatDisplayDate(booking.requestedTravelDate)}
-                              </span>
-                            )}
+                  <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                      <div className="flex items-center gap-2 text-midnight">
+                        <User size={16} className="text-slate" />
+                        <dt className="sr-only">Customer</dt>
+                        <dd className="font-medium">{booking.customerName}</dd>
+                      </div>
+                      <div className="flex items-center gap-2 text-midnight">
+                        <CalendarDays size={16} className="text-slate" />
+                        <dt className="sr-only">Travel date</dt>
+                        <dd>
+                          {booking.travelDate ? formatDisplayDate(booking.travelDate) : "No date yet"}
+                          {booking.requestedTravelDate && booking.requestedTravelDate !== booking.travelDate && (
+                            <span className="block text-xs text-slate">
+                              Requested {formatDisplayDate(booking.requestedTravelDate)}
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      {booking.customerEmail && (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Mail size={16} className="shrink-0 text-slate" />
+                          <dt className="sr-only">Email</dt>
+                          <dd className="truncate">
+                            <a href={`mailto:${booking.customerEmail}`} className="text-primary hover:underline">
+                              {booking.customerEmail}
+                            </a>
                           </dd>
                         </div>
-                        {booking.customerEmail && (
-                          <div className="flex min-w-0 items-center gap-2">
-                            <Mail size={16} className="shrink-0 text-slate" />
-                            <dt className="sr-only">Email</dt>
-                            <dd className="truncate">
-                              <a href={`mailto:${booking.customerEmail}`} className="text-primary hover:underline">
-                                {booking.customerEmail}
-                              </a>
-                            </dd>
-                          </div>
-                        )}
-                        {booking.customerPhone && (
-                          <div className="flex items-center gap-2">
-                            <Phone size={16} className="text-slate" />
-                            <dt className="sr-only">Phone</dt>
-                            <dd>
-                              <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline">
-                                {booking.customerPhone}
-                              </a>
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-
-                      <div className="flex flex-col gap-3 text-sm">
-                        <div className="rounded-2xl bg-midnight/[0.03] p-4">
-                          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate uppercase">
-                            <MessageSquare size={14} /> Customer request
-                          </p>
-                          <p className="whitespace-pre-line text-midnight">{booking.message}</p>
+                      )}
+                      {booking.customerPhone && (
+                        <div className="flex items-center gap-2">
+                          <Phone size={16} className="text-slate" />
+                          <dt className="sr-only">Phone</dt>
+                          <dd>
+                            <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline">
+                              {booking.customerPhone}
+                            </a>
+                          </dd>
                         </div>
-                        {booking.adminMessage && (
-                          <div className="rounded-2xl bg-primary/5 p-4">
-                            <p className="mb-1 text-xs font-semibold tracking-wide text-primary uppercase">Last message sent</p>
-                            <p className="whitespace-pre-line text-midnight">{booking.adminMessage}</p>
-                          </div>
-                        )}
+                      )}
+                    </dl>
+
+                    <div className="flex flex-col gap-3 text-sm">
+                      <div className="rounded-2xl bg-midnight/[0.03] p-4">
+                        <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate uppercase">
+                          <MessageSquare size={14} /> Customer request
+                        </p>
+                        <p className="whitespace-pre-line text-midnight">{booking.message}</p>
                       </div>
+                      {booking.adminMessage && (
+                        <div className="rounded-2xl bg-primary/5 p-4">
+                          <p className="mb-1 text-xs font-semibold tracking-wide text-primary uppercase">Last message sent</p>
+                          <p className="whitespace-pre-line text-midnight">{booking.adminMessage}</p>
+                        </div>
+                      )}
                     </div>
+                  </div>
 
-                    {booking.history && booking.history.length > 1 && (
-                      <details className="mt-4 text-sm">
-                        <summary className="flex cursor-pointer items-center gap-1.5 font-medium text-slate hover:text-midnight">
-                          <History size={15} /> Status history ({booking.history.length})
-                        </summary>
-                        <ol className="mt-3 flex flex-col gap-2 border-l border-border pl-4">
-                          {booking.history.map((entry, index) => (
-                            <li key={index} className="text-slate">
-                              <span className="font-semibold text-midnight capitalize">{entry.status}</span> by {entry.by} ·{" "}
-                              <Clock size={12} className="inline" /> {formatTimestamp(entry.at)}
-                              {entry.message && <p className="whitespace-pre-line text-midnight/80">“{entry.message}”</p>}
-                            </li>
-                          ))}
-                        </ol>
-                      </details>
-                    )}
+                  {booking.history && booking.history.length > 1 && (
+                    <details className="mt-4 text-sm">
+                      <summary className="flex cursor-pointer items-center gap-1.5 font-medium text-slate hover:text-midnight">
+                        <History size={15} /> Status history ({booking.history.length})
+                      </summary>
+                      <ol className="mt-3 flex flex-col gap-2 border-l border-border pl-4">
+                        {booking.history.map((entry, index) => (
+                          <li key={index} className="text-slate">
+                            <span className="font-semibold text-midnight capitalize">{entry.status}</span> by {entry.by} ·{" "}
+                            <Clock size={12} className="inline" /> {formatTimestamp(entry.at)}
+                            {entry.message && <p className="whitespace-pre-line text-midnight/80">“{entry.message}”</p>}
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  )}
 
-                    <div className="mt-5 border-t border-border pt-5">
-                      <BookingActionForm
-                        bookingId={booking.id}
-                        status={booking.status}
-                        travelDate={booking.travelDate}
-                        version={booking.version}
-                      />
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </AdminFlashProvider>
+                  <div className="mt-5 border-t border-border pt-5">
+                    <BookingActionForm
+                      bookingId={booking.id}
+                      status={booking.status}
+                      travelDate={booking.travelDate}
+                      version={booking.version}
+                      filter={filter}
+                    />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </Container>
     </section>
   );

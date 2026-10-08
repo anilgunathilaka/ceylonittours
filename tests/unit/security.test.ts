@@ -4,6 +4,7 @@ import { escapeHtml } from "@/lib/email";
 import { isAdminEmail } from "@/lib/auth/roles";
 import { contactSchema, isoDateSchema, registerSchema } from "@/lib/validation/schemas";
 import { publicErrorMessage } from "@/lib/errors";
+import { noticeMessage, noticeUrl } from "@/lib/admin/notices";
 
 describe("safeCallbackUrl (open redirect prevention)", () => {
   it.each(["https://evil.com", "//evil.com", "/\\evil.com", "javascript:alert(1)", "", null, undefined])(
@@ -67,5 +68,18 @@ describe("publicErrorMessage", () => {
     );
     // @ts-expect-error restore
     process.env.NODE_ENV = original;
+  });
+});
+
+describe("admin notices", () => {
+  it("builds URLs from fixed codes only", () => {
+    expect(noticeUrl("upcoming", "confirmed", "sent")).toBe("/admin/bookings?status=upcoming&notice=confirmed&email=sent");
+  });
+  it("maps codes to text and ignores anything unknown", () => {
+    expect(noticeMessage("confirmed", "sent")).toBe("Booking confirmed. Customer emailed.");
+    expect(noticeMessage("cancelled")).toBe("Booking cancelled.");
+    expect(noticeMessage("<script>alert(1)</script>")).toBeNull();
+    expect(noticeMessage("confirmed", "<b>x</b>")).toBe("Booking confirmed.");
+    expect(noticeMessage(undefined)).toBeNull();
   });
 });

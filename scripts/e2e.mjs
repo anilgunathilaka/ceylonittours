@@ -148,7 +148,11 @@ res = await submitAdminForm(admin, adminHtml, bookingId, {
   message: "Pickup 7:00 AM from your hotel",
   notify: "on",
 });
-check("admin confirm action accepted", res.status === 200);
+// Without JS, a successful action answers with a redirect back to the tab, carrying the notice codes
+const location = res.headers.get("location") ?? "";
+check("admin confirm redirects with success notice", res.status === 303 && location.includes("notice=confirmed"), `${res.status} ${location}`);
+const noticePage = await (await admin.request(location)).text();
+check("success banner rendered without JS", noticePage.includes("Booking confirmed."));
 profile = await (await customer.request("/profile")).text();
 check("customer sees confirmation message", profile.includes("Pickup 7:00 AM from your hotel"));
 check("booking listed as confirmed", profile.includes("Confirmed"));

@@ -5,7 +5,6 @@ import { CalendarDays, Check, RotateCcw, X } from "lucide-react";
 import { updateBookingAction, type UpdateBookingState } from "@/app/admin/bookings/actions";
 import type { BookingStatus } from "@/lib/bookings";
 import { cn } from "@/lib/utils";
-import { useAdminFlash } from "@/components/admin/AdminFlash";
 
 const initialState: UpdateBookingState = { ok: false };
 
@@ -14,25 +13,25 @@ export function BookingActionForm({
   status,
   travelDate,
   version,
+  filter,
 }: {
   bookingId: string;
   status: BookingStatus;
   travelDate?: string;
   /** Version the admin is looking at — stale submissions are rejected server-side */
   version: number;
+  /** Current filter tab, so a successful update redirects back to it */
+  filter: string;
 }) {
-  const flash = useAdminFlash();
-  const [state, formAction, pending] = useActionState(async (prev: UpdateBookingState, formData: FormData) => {
-    const result = await updateBookingAction(prev, formData);
-    // Show success at page level too: the booking may move to another tab and unmount
-    if (result.ok && result.message) flash(result.message);
-    return result;
-  }, initialState);
+  // Plain server action (no client wrapper) so the form also works without JavaScript.
+  // Success redirects with a page-level notice; only errors come back as state.
+  const [state, formAction, pending] = useActionState(updateBookingAction, initialState);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="bookingId" value={bookingId} />
       <input type="hidden" name="version" value={version} />
+      <input type="hidden" name="filter" value={filter} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[200px_1fr]">
         <label className="flex flex-col gap-1.5">

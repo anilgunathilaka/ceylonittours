@@ -22,9 +22,14 @@ export async function proxy(req: NextRequest) {
     secureCookie: req.nextUrl.protocol === "https:",
   });
 
-  // Signed-in users have no reason to see login/register
+  // Signed-in users have no reason to see login/register. Only redirect real page visits:
+  // redirecting Next's background RSC/prefetch requests (e.g. for the header's "Log in" link)
+  // makes Next 16.4+ reject them with a 404. Next strips its own RSC headers before the proxy
+  // runs, so use the browser's Sec-Fetch-Dest ("document" for page loads, "empty" for fetches).
   if (isAuthPage) {
-    if (!token) return NextResponse.next();
+    const fetchDest = req.headers.get("sec-fetch-dest");
+    const isPageVisit = fetchDest === null || fetchDest === "document";
+    if (!token || !isPageVisit) return NextResponse.next();
     const target = safeCallbackUrl(searchParams.get("callbackUrl"));
     return NextResponse.redirect(new URL(target, req.nextUrl.origin));
   }
