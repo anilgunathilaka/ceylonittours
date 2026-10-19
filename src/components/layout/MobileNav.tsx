@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Phone } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
-import { visibleNavLinks } from "@/lib/nav";
+import { tourTypeLinks, visibleNavLinks } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { UserAvatar } from "@/components/auth/UserAvatar";
@@ -49,6 +49,18 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
 
             <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" aria-label="Mobile primary">
+              <p className="px-4 pt-1 pb-1 text-xs font-semibold tracking-wide text-slate uppercase">Tours</p>
+              {tourTypeLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={onClose}
+                  className="rounded-xl px-4 py-3 text-base font-medium text-midnight/85 transition-colors hover:bg-primary/5 hover:text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <div className="mx-4 my-2 border-t border-border" />
               {visibleNavLinks.map((link) => (
                 <Link
                   key={link.href}

@@ -53,7 +53,7 @@ export default function ContactPage() {
       <section className="bg-ivory py-20 lg:py-28">
         <Container className="grid grid-cols-1 gap-12 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="flex flex-col gap-8">
-            <SectionHeading eyebrow="Get In Touch" title="We Reply Within One Business Day" align="left" />
+            <SectionHeading title="We Reply Within One Business Day" align="left" />
             <div className="flex flex-col gap-4">
               {contactMethods.map(({ icon: Icon, label, value, href }) => {
                 const content = (

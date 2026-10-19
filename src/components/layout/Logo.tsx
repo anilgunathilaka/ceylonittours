@@ -2,20 +2,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function Logo({ inverted = false, className }: { inverted?: boolean; className?: string }) {
+export function Logo({ className }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={cn("inline-flex items-center", inverted && "rounded-lg bg-white px-2.5 py-1.5", className)}
+      className={cn("inline-flex items-center", className)}
       aria-label="Ceylon IT Tours — Home"
     >
       <Image
-        src="/images/ceylonittours.png"
+        src="/images/Ceylon-IT-Tours.webp"
         alt="Ceylon IT Tours"
-        width={180}
-        height={68}
+        width={2233}
+        height={540}
         priority
-        className="h-10 w-auto sm:h-11"
+        sizes="260px"
+        className="h-[43px] w-auto object-contain sm:h-[53px] lg:h-[58px]"
       />
     </Link>
   );

@@ -28,7 +28,6 @@ export function GalleryClient({ images }: { images: GalleryImage[] }) {
     <section className="bg-ivory py-20 lg:py-28">
       <Container>
         <SectionHeading
-          eyebrow="Gallery"
           title="Explore the Most Beautiful Places in Sri Lanka"
         />
 

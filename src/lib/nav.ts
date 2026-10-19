@@ -24,3 +24,10 @@ export const visibleNavLinks = navLinks.filter((link) => !HIDDEN_NAV_HREFS.has(l
 export const primaryNavLinks = visibleNavLinks.filter(
   (link) => link.href !== "/" && link.href !== "/contact",
 );
+
+/** Header shortcuts into the tour catalog, pre-filtered by category (?category=) */
+export const tourTypeLinks = [
+  { label: "Round Tour", href: "/tour-packages?category=multi-day-tours" },
+  { label: "Day Tour", href: "/tour-packages?category=day-trips" },
+  { label: "Ride", href: "/tour-packages?category=transfers" },
+] as const;

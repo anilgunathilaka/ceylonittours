@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { PackagesCatalog } from "@/components/tour-packages/PackagesCatalog";
+import { PackagesCatalog, PackagesCatalogFallback } from "@/components/tour-packages/PackagesCatalog";
 import { getFeaturedPackages } from "@/lib/content";
 
 export const metadata: Metadata = {
@@ -17,12 +18,14 @@ export default async function TourPackagesPage() {
     <section className="bg-ivory py-20 lg:py-28">
       <Container>
         <SectionHeading
-          eyebrow="Tour Packages"
           title="Every Tour, Transfer & Day Trip We Run"
         />
 
         <div className="mt-12">
-          <PackagesCatalog packages={packages} />
+          {/* Fallback keeps the full list in the static HTML; the URL's ?category= applies after load */}
+          <Suspense fallback={<PackagesCatalogFallback packages={packages} />}>
+            <PackagesCatalog packages={packages} />
+          </Suspense>
         </div>
       </Container>
     </section>

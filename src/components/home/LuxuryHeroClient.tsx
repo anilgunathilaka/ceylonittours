@@ -360,13 +360,10 @@ export function LuxuryHeroClient({ floatingPackages: _floatingPackages }: { floa
         <h1 className="font-serif text-[42px] leading-[1.08] font-semibold tracking-[-0.02em] text-[#111] sm:text-[56px] lg:text-[68px]">
           Sri Lanka&apos;s best tours to experience
         </h1>
-        <p className="mx-auto mt-5 max-w-[520px] text-[17px] leading-relaxed font-normal text-[#6b6b6b] sm:text-[18px]">
-          Hand-picked itineraries for culture, wildlife, hill country and beach holidays.
-        </p>
       </div>
 
       {/* Search sits above image; image pulled up so bar straddles the top edge */}
-      <div className="relative mx-auto mt-12 max-w-[1776px] px-3 sm:mt-14 sm:px-5 lg:mt-16 lg:px-8">
+      <div className="relative mx-auto mt-12 max-w-(--container-hero) px-3 sm:mt-14 sm:px-5 lg:mt-16 lg:px-8">
         <div className="relative z-20 mx-auto w-full max-w-[1040px]">
           <form
             onSubmit={handleSearch}
@@ -406,7 +403,7 @@ export function LuxuryHeroClient({ floatingPackages: _floatingPackages }: { floa
             <div className="flex shrink-0 items-center">
               <button
                 type="submit"
-                className="flex h-12 w-full items-center justify-center rounded-full bg-[#f88379] px-8 text-[15px] font-semibold text-white transition-colors hover:bg-[#ef7469] lg:h-full lg:min-h-[56px] lg:w-auto lg:min-w-[168px]"
+                className="flex h-12 w-full items-center justify-center rounded-[10px] bg-primary px-8 text-[15px] font-semibold text-white transition-colors hover:bg-primary-dark lg:h-full lg:min-h-[56px] lg:w-auto lg:min-w-[168px]"
               >
                 Check Availability
               </button>

@@ -1,28 +1,16 @@
-import Image from "next/image";
 import { PhoneCall } from "lucide-react";
-import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
-import { photo, unsplash } from "@/lib/images";
+import { Container } from "@/components/ui/Container";
+import { sectionTitleClass } from "@/components/ui/SectionHeading";
+import { cn } from "@/lib/utils";
 
 export function CTASection() {
   return (
-    <section className="relative overflow-hidden py-24 lg:py-32">
-      <div className="absolute inset-0">
-        <Image
-          src={unsplash(photo.forestWaterfall, 2000, 1200)}
-          alt="Waterfall through the forest in Sri Lanka's central highlands"
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-primary/85" />
-      </div>
-
-      <Container className="relative flex flex-col items-center gap-6 text-center text-white">
-        <h2 className="text-balance max-w-2xl font-display text-3xl font-bold sm:text-4xl lg:text-5xl">
-          Ready to Explore the Real Sri Lanka?
-        </h2>
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+    // Full-width band in the footer colour, directly above the footer, so the two read as one block
+    <section className="bg-logo pt-20 pb-8 text-center text-white sm:pt-24 lg:pt-32 lg:pb-12">
+      <Container className="flex flex-col items-center">
+        <h2 className={cn(sectionTitleClass, "max-w-3xl")}>Ready to Explore the Real Sri Lanka?</h2>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Button href="/custom-tour-builder" variant="accent" size="lg">
             Plan My Custom Trip
           </Button>

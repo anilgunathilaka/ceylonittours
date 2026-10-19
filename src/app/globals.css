@@ -17,6 +17,8 @@
   --color-midnight: #172033;
   --color-slate: #556070;
   --color-border: #e8edf4;
+  /* Main blue of the logo artwork */
+  --color-logo: #0126a0;
 
   /* Typography */
   --font-sans: var(--font-satoshi), var(--font-noto-sinhala), sans-serif;
@@ -32,8 +34,10 @@
   --shadow-card-hover: 0 20px 40px -12px rgb(23 32 51 / 0.18);
   --shadow-elevated: 0 24px 64px -16px rgb(23 58 138 / 0.25);
 
-  /* Container — shared page content width */
-  --container-content: 1360px;
+  /* Container — content width shared by every section and the footer */
+  --container-content: 1600px;
+  /* Wider width for the home hero image */
+  --container-hero: 1776px;
 }
 
 @layer base {

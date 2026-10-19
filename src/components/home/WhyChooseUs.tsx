@@ -23,7 +23,6 @@ export async function WhyChooseUs() {
     <section className="bg-ivory py-20 lg:py-28">
       <Container>
         <SectionHeading
-          eyebrow="Why Ceylon IT Tours"
           title="Local Expertise, Designed Entirely Around You"
         />
 
@@ -39,7 +38,7 @@ export async function WhyChooseUs() {
                   className="object-cover"
                 />
               </div>
-              <div className="absolute -bottom-8 -right-4 flex w-48 flex-col gap-1 rounded-2xl bg-white p-5 shadow-elevated sm:-right-8 sm:w-56">
+              <div className="absolute -bottom-8 -right-2 flex w-48 flex-col gap-1 rounded-2xl bg-white p-5 shadow-elevated sm:-right-4 sm:w-56 lg:-right-8">
                 <span className="font-display text-3xl font-semibold text-primary">
                   <Counter value={15} suffix="+" />
                 </span>

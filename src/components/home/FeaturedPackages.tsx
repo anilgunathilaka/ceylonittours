@@ -9,9 +9,8 @@ export async function FeaturedPackages() {
 
   return (
     <section className="bg-surface py-20 lg:py-28">
-      <div className="mx-auto max-w-[1776px] px-3 sm:px-5 lg:px-8">
+      <div className="mx-auto max-w-(--container-content) px-3 sm:px-5 lg:px-8">
         <SectionHeading
-          eyebrow="Featured Packages"
           title="Hand-Crafted Tours, Ready to Book"
         />
 

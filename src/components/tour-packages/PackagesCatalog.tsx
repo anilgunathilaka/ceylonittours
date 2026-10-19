@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Clock, MapPin } from "lucide-react";
@@ -21,14 +22,49 @@ const badgeTone = {
   "New Activity": "nature",
 } as const;
 
+/** URL-friendly category key, e.g. "Day Trips" -> "day-trips" (used as ?category=) */
+export const categorySlug = (category: string) => category.toLowerCase().replace(/\s+/g, "-");
+
+/** Catalog whose active category lives in the URL (?category=…), so links can open a filtered view. */
 export function PackagesCatalog({ packages }: { packages: TourPackage[] }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const slug = searchParams.get("category");
+
+  function select(category: TourCategory | "All") {
+    const params = new URLSearchParams(searchParams);
+    if (category === "All") params.delete("category");
+    else params.set("category", categorySlug(category));
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
+  return <CatalogView packages={packages} activeSlug={slug} onSelect={select} />;
+}
+
+/** Server-renderable fallback (all tours) shown in the static HTML before the URL is read. */
+export function PackagesCatalogFallback({ packages }: { packages: TourPackage[] }) {
+  return <CatalogView packages={packages} activeSlug={null} />;
+}
+
+function CatalogView({
+  packages,
+  activeSlug,
+  onSelect,
+}: {
+  packages: TourPackage[];
+  activeSlug: string | null;
+  onSelect?: (category: TourCategory | "All") => void;
+}) {
   const categories = useMemo(() => {
     const seen = new Set<TourCategory>();
     for (const pkg of packages) seen.add(pkg.category);
     return Array.from(seen);
   }, [packages]);
 
-  const [active, setActive] = useState<TourCategory | "All">("All");
+  const active: TourCategory | "All" = categories.find((cat) => categorySlug(cat) === activeSlug) ?? "All";
+  const setActive = (category: TourCategory | "All") => onSelect?.(category);
 
   const filtered = active === "All" ? packages : packages.filter((p) => p.category === active);
 

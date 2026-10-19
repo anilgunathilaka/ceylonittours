@@ -13,7 +13,6 @@ export async function ExperienceCategories() {
     <section className="bg-ivory py-20 lg:py-28">
       <Container>
         <SectionHeading
-          eyebrow="Experiences"
           title="Choose Your Kind of Sri Lanka"
         />
 

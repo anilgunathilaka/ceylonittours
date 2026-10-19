@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/layout/Logo";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { AuthNav } from "@/components/auth/AuthNav";
+import { tourTypeLinks } from "@/lib/nav";
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -26,8 +27,9 @@ export function Header() {
         scrolled && "shadow-[0_1px_0_0_rgba(0,0,0,0.06)]",
       )}
     >
-      <div className="mx-auto grid h-[72px] max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 sm:px-6 lg:px-10">
-        {/* Left: menu + search */}
+      {/* Header has its own content width; side padding matches the rest of the site */}
+      <div className="mx-auto grid h-[72px] w-full max-w-[1660px] grid-cols-[1fr_auto_1fr] items-center gap-4 px-3 sm:px-5 lg:px-8">
+        {/* Left: menu + tour type links */}
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
@@ -38,12 +40,17 @@ export function Header() {
           >
             <Menu size={20} strokeWidth={1.75} />
           </button>
-          <Link
-            href="/tour-packages"
-            className="hidden text-[16px] font-bold text-black transition-opacity hover:opacity-70 sm:inline"
-          >
-            Search tours
-          </Link>
+          <nav className="hidden items-center gap-6 lg:flex" aria-label="Tour types">
+            {tourTypeLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-[16px] font-bold whitespace-nowrap text-black transition-opacity hover:opacity-70"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
         {/* Center: logo */}
@@ -53,19 +60,19 @@ export function Header() {
         <div className="flex items-center justify-end gap-3 lg:gap-4">
           <Link
             href="/tour-packages"
+            aria-label="Saved"
             className="hidden items-center gap-2.5 text-[16px] font-medium text-black transition-opacity hover:opacity-70 md:inline-flex"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10">
               <Heart size={16} strokeWidth={1.75} />
             </span>
-            <span className="hidden lg:inline">Saved</span>
           </Link>
 
           <AuthNav />
 
           <Link
             href="/contact"
-            className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-[14px] font-semibold text-white transition-opacity hover:opacity-85 sm:px-6"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-black px-5 text-[14px] font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-85 sm:px-6"
           >
             Book Now
           </Link>

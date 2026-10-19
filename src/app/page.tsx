@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LuxuryHero } from "@/components/home/LuxuryHero";
+import { WhatWeDo } from "@/components/home/WhatWeDo";
 import { PopularDestinations } from "@/components/home/PopularDestinations";
 import { FeaturedPackages } from "@/components/home/FeaturedPackages";
 import { WhyChooseUs } from "@/components/home/WhyChooseUs";
@@ -49,6 +50,7 @@ export default function Home() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <LuxuryHero />
+      <WhatWeDo />
        <FeaturedPackages />
       <PopularDestinations />
       <WhyChooseUs />

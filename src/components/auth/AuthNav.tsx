@@ -112,7 +112,7 @@ export function AuthNav({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "hidden h-10 w-[7.5rem] animate-pulse rounded-full bg-black/5 sm:block",
+          "hidden h-10 w-10 animate-pulse rounded-full bg-black/5 sm:block",
           className,
         )}
       />
@@ -126,6 +126,7 @@ export function AuthNav({ className }: { className?: string }) {
   return (
     <Link
       href="/login"
+      aria-label="Log in"
       className={cn(
         "hidden items-center gap-2.5 text-[16px] font-medium text-black transition-opacity hover:opacity-70 sm:inline-flex",
         className,
@@ -134,7 +135,6 @@ export function AuthNav({ className }: { className?: string }) {
       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10">
         <User size={16} strokeWidth={1.75} />
       </span>
-      <span className="hidden lg:inline">Log in</span>
     </Link>
   );
 }

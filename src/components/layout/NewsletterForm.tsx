@@ -33,8 +33,8 @@ export function NewsletterForm() {
 
   if (status === "success") {
     return (
-      <div className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-sm font-medium text-white">
-        <CheckCircle2 size={18} className="text-secondary" />
+      <div className="flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-midnight">
+        <CheckCircle2 size={18} className="text-nature" />
         You&apos;re subscribed — welcome aboard!
       </div>
     );
@@ -42,7 +42,7 @@ export function NewsletterForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 rounded-full bg-white/10 p-1.5 pl-4 ring-1 ring-white/15 focus-within:ring-secondary">
+      <div className="flex items-center gap-2 rounded-full bg-white p-1.5 pl-4 ring-1 ring-white/20 focus-within:ring-white">
         <label htmlFor="newsletter-email" className="sr-only">
           Email address
         </label>
@@ -50,19 +50,20 @@ export function NewsletterForm() {
           id="newsletter-email"
           type="email"
           placeholder="Your email address"
-          className="h-10 w-full min-w-0 bg-transparent text-sm text-white placeholder:text-white/50 focus:outline-none"
+          className="h-10 w-full min-w-0 bg-transparent text-sm text-midnight placeholder:text-slate focus:outline-none"
           aria-invalid={!!errors.email}
           {...register("email")}
         />
         <button
           type="submit"
           disabled={isSubmitting}
+          aria-label={isSubmitting ? "Sending…" : "Subscribe"}
+          title="Subscribe"
           className={cn(
-            "flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark disabled:opacity-60",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-logo text-white transition-opacity hover:opacity-85 disabled:opacity-60",
           )}
         >
-          {isSubmitting ? "Sending…" : "Subscribe"}
-          <Send size={14} />
+          <Send size={15} />
         </button>
       </div>
       {errors.email && <p className="text-xs font-medium text-orange-200">{errors.email.message}</p>}

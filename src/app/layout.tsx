@@ -61,6 +61,10 @@ export const metadata: Metadata = {
       "Locally-run, tailor-made Sri Lanka tours with private drivers and 24/7 support.",
   },
   robots: { index: true, follow: true },
+  icons: {
+    icon: { url: "/images/favicon.webp", type: "image/webp", sizes: "128x128" },
+    apple: "/images/favicon.webp",
+  },
 };
 
 const gaId = process.env.NEXT_PUBLIC_GA_ID;

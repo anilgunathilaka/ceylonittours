@@ -1,13 +1,15 @@
 import { cn } from "@/lib/utils";
 
+/** Section title type, matching the home hero headline (serif, semibold, tight tracking). */
+export const sectionTitleClass =
+  "text-balance font-serif text-[34px] leading-[1.1] font-semibold tracking-[-0.02em] sm:text-[44px] lg:text-[52px]";
+
 export function SectionHeading({
-  eyebrow,
   title,
   description,
   align = "center",
   className,
 }: {
-  eyebrow?: string;
   title: string;
   description?: string;
   align?: "center" | "left";
@@ -23,26 +25,7 @@ export function SectionHeading({
         className,
       )}
     >
-      {eyebrow && (
-        <span
-          className={cn(
-            "inline-flex items-center gap-2 text-sm font-semibold tracking-[0.08em] text-secondary uppercase",
-            centered && "justify-center",
-          )}
-        >
-          <span className="h-px w-8 bg-secondary" aria-hidden />
-          {eyebrow}
-          {centered && <span className="h-px w-8 bg-secondary" aria-hidden />}
-        </span>
-      )}
-      <h2
-        className={cn(
-          "text-balance max-w-2xl text-3xl font-bold text-midnight sm:text-4xl lg:text-5xl",
-          centered && "mx-auto",
-        )}
-      >
-        {title}
-      </h2>
+      <h2 className={cn(sectionTitleClass, "max-w-2xl text-midnight", centered && "mx-auto")}>{title}</h2>
       {description && (
         <p
           className={cn(

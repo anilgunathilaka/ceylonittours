@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { Container } from "@/components/ui/Container";
-import { Logo } from "@/components/layout/Logo";
+import { FooterColumn } from "@/components/layout/FooterColumn";
 import { NewsletterForm } from "@/components/layout/NewsletterForm";
 import { getDestinations } from "@/lib/content";
 import { FacebookIcon, InstagramIcon, XIcon } from "@/components/ui/SocialIcons";
@@ -22,90 +22,134 @@ const socialLinks = [
   { label: "Twitter / X", href: "https://twitter.com", icon: XIcon },
 ];
 
+// Underline that fades in on hover
+const linkClass =
+  "underline decoration-transparent underline-offset-2 transition-colors duration-150 hover:decoration-white";
+
 export async function Footer() {
   const destinations = await getDestinations();
 
   return (
-    <footer className="bg-midnight text-white/80">
-      <Container className="grid grid-cols-1 gap-12 py-16 sm:grid-cols-2 lg:grid-cols-4 lg:py-20">
-        <div className="flex flex-col gap-5 sm:col-span-2 lg:col-span-1">
-          <Logo inverted />
-          <p className="max-w-xs text-sm leading-relaxed text-white/60">
-            Locally-run, tailor-made journeys across Sri Lanka — private drivers, hand-picked
-            stays, and a team on the ground for every mile of your trip.
-          </p>
-          <div className="flex items-center gap-3">
-            {socialLinks.map(({ label, href, icon: Icon }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={label}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-secondary"
-              >
-                <Icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold tracking-wide text-white uppercase">Quick Links</h3>
-          <ul className="flex flex-col gap-3">
-            {quickLinks.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} className="text-sm text-white/60 transition-colors hover:text-white">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold tracking-wide text-white uppercase">Top Destinations</h3>
-          <ul className="flex flex-col gap-3">
-            {destinations.slice(0, 6).map((d) => (
-              <li key={d.slug}>
+    <footer className="bg-logo text-white">
+      <Container className="pt-[7.5rem] pb-10">
+          <div className="grid grid-cols-1 gap-14 sm:gap-16 xl:grid-cols-12 xl:gap-6">
+            <div className="xl:col-span-3">
+              <h2 className="font-serif text-[24px] leading-[1.15] font-semibold sm:text-[34px] xl:text-[38px]">
+                Locally-run, tailor-made journeys across Sri Lanka
+              </h2>
+              <p className="mt-4 text-base text-white/80 sm:mt-7 sm:text-lg">
+                Private drivers, hand-picked stays, and a team on the ground for every mile of your trip.
+              </p>
+              <div className="mt-6 sm:mt-9">
                 <Link
-                  href="/destinations"
-                  className="text-sm text-white/60 transition-colors hover:text-white"
+                  href="/tour-packages"
+                  className="inline-flex items-center justify-center rounded-full bg-white px-6 py-4 text-sm leading-none font-semibold text-logo transition-[translate,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_8px_20px_-8px_rgb(0_0_0/0.45)]"
                 >
-                  {d.name}
+                  View tour packages
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+              </div>
+            </div>
 
-        <div className="flex flex-col gap-5">
-          <h3 className="text-sm font-semibold tracking-wide text-white uppercase">Stay Updated</h3>
-          <p className="text-sm text-white/60">Trip ideas and seasonal offers, once or twice a month.</p>
-          <NewsletterForm />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 xl:col-span-8 xl:col-start-5">
+              <FooterColumn title="Quick Links">
+                <ul className="space-y-2 text-sm">
+                  {quickLinks.map((link) => (
+                    <li key={link.href}>
+                      <Link href={link.href} className={linkClass}>
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </FooterColumn>
 
-          <div className="flex flex-col gap-3 pt-2">
-            <a href="tel:+94112345678" className="flex items-center gap-2.5 text-sm text-white/70 hover:text-white">
-              <Phone size={16} className="text-secondary" />
-              +94 11 234 5678
-            </a>
-            <a href="mailto:hello@ceylonittours.com" className="flex items-center gap-2.5 text-sm text-white/70 hover:text-white">
-              <Mail size={16} className="text-secondary" />
-              hello@ceylonittours.com
-            </a>
-            <span className="flex items-start gap-2.5 text-sm text-white/70">
-              <MapPin size={16} className="mt-0.5 shrink-0 text-secondary" />
-              No. 42, Galle Road, Colombo 03, Sri Lanka
-            </span>
+              <FooterColumn title="Top Destinations">
+                <ul className="space-y-2 text-sm">
+                  {destinations.slice(0, 6).map((d) => (
+                    <li key={d.slug}>
+                      <Link href="/destinations" className={linkClass}>
+                        {d.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </FooterColumn>
+
+              <FooterColumn title="Contact">
+                <ul className="space-y-2 text-sm">
+                  <li>
+                    <a href="tel:+94112345678" className={`inline-flex items-center gap-2 ${linkClass}`}>
+                      <Phone size={14} aria-hidden />
+                      +94 11 234 5678
+                    </a>
+                  </li>
+                  <li>
+                    <a href="mailto:hello@ceylonittours.com" className={`inline-flex items-center gap-2 ${linkClass}`}>
+                      <Mail size={14} aria-hidden />
+                      hello@ceylonittours.com
+                    </a>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MapPin size={14} className="mt-[3px] shrink-0" aria-hidden />
+                    No. 42, Galle Road, Colombo 03, Sri Lanka
+                  </li>
+                </ul>
+              </FooterColumn>
+
+              <FooterColumn title="Stay Updated">
+                <p className="mb-3 text-sm text-white/80">Trip ideas and seasonal offers, once or twice a month.</p>
+                <NewsletterForm />
+              </FooterColumn>
+            </div>
           </div>
-        </div>
-      </Container>
 
-      <div className="border-t border-white/10">
-        <Container className="flex flex-col items-center justify-center gap-3 py-6 text-center text-xs text-white/50 sm:flex-row">
-          <span>© {new Date().getFullYear()} Ceylon IT Tours. All rights reserved.</span>
-        </Container>
-      </div>
+          <div className="grid grid-cols-1 items-center gap-6 pt-[7.5rem] md:grid-cols-12">
+            <div className="md:col-span-12 xl:col-span-4">
+              <ul className="inline-flex gap-3">
+                {socialLinks.map(({ label, href, icon: Icon }) => (
+                  <li key={label}>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-white/30 transition-colors duration-150 hover:bg-white hover:text-logo"
+                    >
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="md:col-span-9 xl:col-span-6">
+              <ul className="inline-flex flex-col flex-wrap gap-2 text-sm text-white/80 sm:flex-row sm:gap-5">
+                {quickLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className={linkClass}>
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>© {new Date().getFullYear()} Ceylon IT Tours. All rights reserved.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Full-width wordmark: SVG text stretched edge to edge at any screen width */}
+          <svg viewBox="0 0 1000 80" className="mt-10 block h-auto w-full overflow-visible" role="img" aria-label="Ceylon IT Tours">
+            <text
+              x="0"
+              y="76"
+              textLength="1000"
+              lengthAdjust="spacing"
+              fill="currentColor"
+              className="font-serif font-semibold"
+              style={{ fontSize: 115 }}
+            >
+              CEYLON IT TOURS
+            </text>
+          </svg>
+      </Container>
     </footer>
   );
 }

@@ -22,7 +22,6 @@ export function TestimonialsClient({ testimonials }: { testimonials: Testimonial
       <Container>
         <div className="relative">
           <SectionHeading
-            eyebrow="Traveller Stories"
             title="What Our Travellers Say"
           />
           <div className="mt-6 flex items-center justify-center gap-2 sm:absolute sm:top-0 sm:right-0 sm:mt-0">

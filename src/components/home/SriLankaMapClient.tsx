@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { cn, formatCurrency } from "@/lib/utils";
+import { sectionTitleClass } from "@/components/ui/SectionHeading";
 import type { Destination } from "@/types";
 
 /**
@@ -35,40 +36,11 @@ export function SriLankaMapClient({ destinations }: { destinations: Destination[
   if (!active) return null;
 
   return (
-    <section className="relative overflow-hidden bg-primary py-24 lg:py-32">
-      {/* Destination image as section background */}
-      <AnimatePresence mode="sync">
-        <motion.div
-          key={`bg-${active.slug}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute inset-0"
-        >
-          <Image
-            src={active.image.url}
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-            aria-hidden
-            priority={active.slug === initial}
-          />
-        </motion.div>
-      </AnimatePresence>
-      <div className="absolute inset-0 bg-primary/50" aria-hidden />
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/50 via-primary/40 to-primary/30" aria-hidden />
-
+    <section className="relative bg-white py-24 lg:py-32">
       <Container className="relative z-10">
         {/* Row 1 — centered title */}
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-          <p className="text-sm font-semibold tracking-[0.08em] text-secondary uppercase">
-            Explore The Island
-          </p>
-          <h2 className="text-4xl font-bold tracking-[0.08em] text-white uppercase sm:text-5xl lg:text-[3.25rem] lg:leading-[1.15]">
-            Discover Destinations Across Ceylon
-          </h2>
+          <h2 className={cn(sectionTitleClass, "text-midnight")}>Discover Destinations Across Ceylon</h2>
         </div>
 
         {/* Row 2 — centered map + selected location */}
@@ -127,7 +99,7 @@ export function SriLankaMapClient({ destinations }: { destinations: Destination[
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="group relative flex min-h-[360px] w-full max-w-md flex-col overflow-hidden rounded-3xl shadow-elevated ring-1 ring-white/15 sm:min-h-[420px] sm:max-w-none sm:flex-1"
+              className="group relative flex min-h-[360px] w-full max-w-md flex-col overflow-hidden rounded-3xl shadow-elevated ring-1 ring-black/5 sm:min-h-[420px] sm:max-w-none sm:flex-1"
             >
               <Image
                 src={active.image.url}
