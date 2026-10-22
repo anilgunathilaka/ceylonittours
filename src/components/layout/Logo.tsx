@@ -12,11 +12,11 @@ export function Logo({ className }: { className?: string }) {
       <Image
         src="/images/Ceylon-IT-Tours.webp"
         alt="Ceylon IT Tours"
-        width={2233}
-        height={540}
+        width={1440}
+        height={589}
         priority
-        sizes="260px"
-        className="h-[43px] w-auto object-contain sm:h-[53px] lg:h-[58px]"
+        sizes="160px"
+        className="h-12 w-auto object-contain sm:h-14 lg:h-16"
       />
     </Link>
   );

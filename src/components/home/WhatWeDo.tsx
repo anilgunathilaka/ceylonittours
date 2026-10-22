@@ -38,7 +38,12 @@ const services = [
 export function WhatWeDo() {
   return (
     <section id="what-we-do" className="scroll-mt-28 bg-white py-20 lg:py-24">
-      <SectionHeading title="Round Tours, Day Tours & Cabs" />
+      <SectionHeading
+        eyebrow="Explore Your Way"
+        title="Your Sri Lankan Journey, Thoughtfully Planned"
+        // Let this longer title run on one line on larger screens
+        className="px-3 sm:px-5 lg:[&_h2]:max-w-none"
+      />
 
       <div className="mx-auto mt-12 grid max-w-(--container-content) grid-cols-1 gap-3 px-3 sm:px-5 md:grid-cols-3 lg:px-8">
         {services.map((service) => (

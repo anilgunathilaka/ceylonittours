@@ -9,40 +9,27 @@ export const stats: Stat[] = [
 
 export const whyChooseUs = [
   {
-    title: "Local Sri Lankan Experts",
+    title: "Local Knowledge That Matters",
     description:
-      "Every itinerary is built by a team who lives here — real recommendations, not a script.",
+      "Get practical recommendations and discover places worth visiting, shaped by local knowledge and your travel interests.",
     icon: "MapPinned",
   },
   {
-    title: "Private Vetted Drivers",
+    title: "Comfortable Private Travel",
     description:
-      "Air-conditioned vehicles and English-speaking chauffeur-guides, never a stranger's shared van.",
+      "Enjoy a private journey with a vehicle suited to your group and itinerary, subject to availability and booking confirmation.",
     icon: "Car",
   },
   {
-    title: "Tailor-Made Itineraries",
-    description:
-      "No fixed templates — every trip is built around your pace, interests, and budget.",
-    icon: "Compass",
+    title: "Journeys Made for You",
+    description: "Adapt your itinerary to your interests, preferred pace, travel dates, and budget.",
+    icon: "Route",
   },
   {
-    title: "24/7 Support On The Road",
+    title: "Support Along the Way",
     description:
-      "A direct line to your trip coordinator from arrival to departure, every day of your journey.",
+      "Get clear communication and assistance from your travel coordinator according to your confirmed service arrangements.",
     icon: "Headset",
-  },
-  {
-    title: "Best Price Guarantee",
-    description:
-      "Direct relationships with hotels and guides mean no middleman markup on your trip.",
-    icon: "BadgeCheck",
-  },
-  {
-    title: "Sustainable Tourism",
-    description:
-      "Partnering with community-run lodges and conservation projects across the island.",
-    icon: "Leaf",
   },
 ];
 

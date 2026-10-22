@@ -41,7 +41,7 @@ export async function TravelProcess() {
           {/* Oversized logo mark as a faint background pattern */}
           <div
             aria-hidden
-            className="pointer-events-none absolute top-0 left-0 aspect-[347/470] h-[110%] bg-white opacity-[0.07] max-sm:h-[70%]"
+            className="pointer-events-none absolute top-0 left-0 aspect-[345/568] h-[110%] bg-white opacity-[0.07] max-sm:h-[70%]"
             style={{
               maskImage: "url(/images/logo-mark.png)",
               maskSize: "contain",

@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { cn, formatCurrency } from "@/lib/utils";
-import { sectionTitleClass } from "@/components/ui/SectionHeading";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import type { Destination } from "@/types";
 
 /**
@@ -39,8 +39,8 @@ export function SriLankaMapClient({ destinations }: { destinations: Destination[
     <section className="relative bg-white py-24 lg:py-32">
       <Container className="relative z-10">
         {/* Row 1 — centered title */}
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-          <h2 className={cn(sectionTitleClass, "text-midnight")}>Discover Destinations Across Ceylon</h2>
+        <div className="mx-auto flex flex-col items-center gap-5 text-center">
+          <SectionHeading eyebrow="Your Trip, Your Way" title="Discover Destinations Across Ceylon" className="lg:[&_h2]:max-w-none" />
         </div>
 
         {/* Row 2 — centered map + selected location */}

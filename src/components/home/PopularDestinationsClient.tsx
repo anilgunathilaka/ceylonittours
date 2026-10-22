@@ -9,7 +9,7 @@ import { A11y } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sectionTitleClass } from "@/components/ui/SectionHeading";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import type { Destination } from "@/types";
 
 import "swiper/css";
@@ -199,8 +199,8 @@ export function PopularDestinationsClient({ destinations }: { destinations: Dest
       />
 
       <div className="relative mx-3 max-w-[1000px] md:mx-auto xl:max-w-[1067px]">
-        <div className="pb-12 text-center lg:pb-16">
-          <h2 className={cn(sectionTitleClass, "text-midnight")}>Popular Destinations Across the Island</h2>
+        <div className="pb-12 lg:pb-16">
+          <SectionHeading eyebrow="The Island Awaits" title="Every Corner Has a Story" />
         </div>
       </div>
 

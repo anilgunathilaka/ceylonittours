@@ -122,3 +122,10 @@
     border: 0;
   }
 }
+
+/* Endless horizontal scroll: each copy of a marquee row slides one full width left, then repeats */
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}

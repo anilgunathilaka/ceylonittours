@@ -10,9 +10,7 @@ export async function FeaturedPackages() {
   return (
     <section className="bg-surface py-20 lg:py-28">
       <div className="mx-auto max-w-(--container-content) px-3 sm:px-5 lg:px-8">
-        <SectionHeading
-          title="Hand-Crafted Tours, Ready to Book"
-        />
+        <SectionHeading eyebrow="Find Your Next Adventure" title="Journeys Worth Taking" />
 
         <div className="mt-12 grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {packages.slice(0, 4).map((pkg, i) => (
