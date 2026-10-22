@@ -29,11 +29,17 @@ import type { BlogPost, Destination, Experience, TourPackage, Testimonial } from
  */
 const isSanityConfigured = Boolean(process.env.NEXT_PUBLIC_SANITY_PROJECT_ID);
 
+/**
+ * Pages using Sanity data re-render in the background at most this often. The signed webhook at
+ * /api/revalidate refreshes them immediately on publish; this is the safety net if a webhook is missed.
+ */
+const SANITY_REVALIDATE_SECONDS = 3600;
+
 async function withFallback<T>(query: string, fallback: T[]): Promise<T[]> {
   if (!isSanityConfigured) return fallback;
 
   try {
-    const result = await client.fetch<T[]>(query);
+    const result = await client.fetch<T[]>(query, {}, { next: { revalidate: SANITY_REVALIDATE_SECONDS } });
     return result.length > 0 ? result : fallback;
   } catch (error) {
     console.error("Sanity query failed, using local fallback data:", error);

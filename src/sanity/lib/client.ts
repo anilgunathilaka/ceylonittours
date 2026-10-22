@@ -6,5 +6,7 @@ export const client = createClient({
   projectId,
   dataset,
   apiVersion,
-  useCdn: true, // Set to false if statically generating pages, using ISR or tag-based revalidation
+  // Off: pages are statically generated and refreshed by revalidation, so each re-render must read the
+  // latest published content straight from the API, not a CDN copy that may still be stale.
+  useCdn: false,
 })
