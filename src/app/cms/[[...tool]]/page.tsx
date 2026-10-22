@@ -15,5 +15,11 @@ export const dynamic = 'force-static'
 export { metadata, viewport } from 'next-sanity/studio'
 
 export default function StudioPage() {
-  return <NextStudio config={config} />
+  // The root layout wraps every route in the site Header and Footer. Lift the Studio above them in a
+  // full-screen layer so its full 100vh height — including the document footer with the Publish button — stays on screen.
+  return (
+    <div className="fixed inset-0 z-[300]">
+      <NextStudio config={config} />
+    </div>
+  )
 }
