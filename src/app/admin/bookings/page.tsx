@@ -6,6 +6,7 @@ import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { BookingActionForm } from "@/components/admin/BookingActionForm";
 import { AdminNotice } from "@/components/admin/AdminNotice";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { noticeMessage } from "@/lib/admin/notices";
 import { getAdminSession } from "@/lib/auth/admin";
 import { getAllBookings, type Booking, type BookingStatus } from "@/lib/bookings";
@@ -76,6 +77,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
           <span className="flex items-center gap-2 text-sm font-semibold text-primary">
             <ShieldCheck size={18} /> Admin
           </span>
+          <AdminNav active="bookings" />
           <h1 className="font-display text-3xl font-semibold text-midnight sm:text-4xl">Manage Bookings</h1>
           <p className="text-sm text-slate">
             Review booking requests, confirm or cancel them, and send the customer a message. Messages appear on the

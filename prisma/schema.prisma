@@ -1,5 +1,5 @@
-// Ceylon IT Tours — application data (users, OAuth links, bookings).
-// Website content (packages, blogs, ...) stays in Sanity.
+// Ceylon IT Tours — application data (users, OAuth links, bookings) and website content
+// (tour packages, destinations, experiences, testimonials, blog posts) managed in /admin/content.
 
 generator client {
   provider = "prisma-client"
@@ -101,4 +101,161 @@ model BookingStatusHistory {
 
   @@index([bookingId, createdAt])
   @@map("booking_status_history")
+}
+
+// ---------------------------------------------------------------------------
+// Website content (managed in /admin/content). Only PUBLISHED rows appear on the site.
+// Images are stored in Supabase Storage; rows keep the public URL plus alt text and size.
+// ---------------------------------------------------------------------------
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model TourPackage {
+  id               String        @id @default(uuid())
+  slug             String        @unique
+  status           ContentStatus @default(DRAFT)
+  title            String
+  /// Short tag shown on the card, e.g. "Transfer tour", "Day trip"
+  tourType         String?
+  /// Free-text starting point, e.g. "Kandy", "From Kandy"
+  location         String?
+  /// Slugs of the destinations this tour visits
+  destinationSlugs String[]      @default([])
+  category         String
+  badge            String?
+  summary          String
+  imageUrl         String
+  imageAlt         String        @default("")
+  imageWidth       Int?
+  imageHeight      Int?
+
+  durationDays     Int?
+  durationNights   Int?
+  /// Human label for hour-based tours, e.g. "7.5–8 hours"
+  durationLabel    String?
+  price            Float
+  originalPrice    Float?
+  groupSize        String   @default("")
+  languages        String[] @default([])
+  freeCancellation Boolean  @default(false)
+  payLater         Boolean  @default(false)
+  provider         String?
+
+  description     String?
+  highlights      String[] @default([])
+  routeSummary    String?
+  /// [{ title, detail?, note? }]
+  itinerary       Json     @default("[]")
+  includes        String[] @default([])
+  excludes        String[] @default([])
+  notSuitableFor  String[] @default([])
+  whatToBring     String[] @default([])
+  notAllowed      String[] @default([])
+  knowBeforeYouGo String[] @default([])
+
+  rating           Float?
+  reviewCount      Int?
+  /// [{ label, value }]
+  reviewBreakdown  Json    @default("[]")
+  aiReviewSummary  String?
+  /// [{ name, country, date, rating, text }]
+  reviewHighlights Json    @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testimonials Testimonial[]
+
+  @@index([status, createdAt])
+  @@map("tour_packages")
+}
+
+model Destination {
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  status        ContentStatus @default(DRAFT)
+  name          String
+  region        String        @default("")
+  tagline       String        @default("")
+  description   String        @default("")
+  imageUrl      String
+  imageAlt      String        @default("")
+  imageWidth    Int?
+  imageHeight   Int?
+  tourCount     Int           @default(0)
+  startingPrice Float         @default(0)
+  featured      Boolean       @default(false)
+  /// Position on the Sri Lanka map, in % of the map image
+  mapX          Float         @default(50)
+  mapY          Float         @default(50)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+  @@map("destinations")
+}
+
+model Experience {
+  id          String        @id @default(uuid())
+  slug        String        @unique
+  status      ContentStatus @default(DRAFT)
+  name        String
+  category    String
+  description String        @default("")
+  imageUrl    String
+  imageAlt    String        @default("")
+  imageWidth  Int?
+  imageHeight Int?
+  tourCount   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@map("experiences")
+}
+
+model Testimonial {
+  id            String        @id @default(uuid())
+  status        ContentStatus @default(DRAFT)
+  name          String
+  country       String        @default("")
+  /// Emoji flag, e.g. "🇬🇧"
+  countryFlag   String        @default("")
+  avatarUrl     String?
+  avatarAlt     String        @default("")
+  quote         String
+  rating        Int           @default(5)
+  tourPackageId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tourPackage TourPackage? @relation(fields: [tourPackageId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("testimonials")
+}
+
+model BlogPost {
+  id              String        @id @default(uuid())
+  slug            String        @unique
+  status          ContentStatus @default(DRAFT)
+  title           String
+  excerpt         String        @default("")
+  imageUrl        String
+  imageAlt        String        @default("")
+  imageWidth      Int?
+  imageHeight     Int?
+  category        String        @default("")
+  readTimeMinutes Int           @default(5)
+  publishedAt     DateTime      @default(now())
+  /// Article body as plain text (paragraphs separated by blank lines)
+  body            String        @default("")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
 }

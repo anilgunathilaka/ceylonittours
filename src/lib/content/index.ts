@@ -21,7 +21,16 @@ import { testimonials } from "@/lib/data/testimonials";
 import { blogPosts } from "@/lib/data/blog";
 import { galleryImages } from "@/lib/data/gallery";
 import { stats, whyChooseUs, travelProcess } from "@/lib/data/stats";
+import {
+  getDatabaseBlogPosts,
+  getDatabaseDestinations,
+  getDatabaseExperiences,
+  getDatabasePackages,
+  getDatabaseTestimonials,
+} from "@/lib/content/database";
 import type { BlogPost, Destination, Experience, TourPackage, Testimonial } from "@/types";
+
+const useDatabase = process.env.CONTENT_SOURCE === "database";
 
 /**
  * Checked via raw process.env (not src/sanity/env.ts, which throws when
@@ -35,7 +44,18 @@ const isSanityConfigured = Boolean(process.env.NEXT_PUBLIC_SANITY_PROJECT_ID);
  */
 const SANITY_REVALIDATE_SECONDS = 3600;
 
-async function withFallback<T>(query: string, fallback: T[]): Promise<T[]> {
+async function fromDatabase<T>(load: () => Promise<T[]>, fallback: T[]): Promise<T[]> {
+  try {
+    const result = await load();
+    return result.length > 0 ? result : fallback;
+  } catch (error) {
+    console.error("Content database query failed, using local fallback data:", error);
+    return fallback;
+  }
+}
+
+async function withFallback<T>(query: string, fallback: T[], load: () => Promise<T[]>): Promise<T[]> {
+  if (useDatabase) return fromDatabase(load, fallback);
   if (!isSanityConfigured) return fallback;
 
   try {
@@ -48,7 +68,7 @@ async function withFallback<T>(query: string, fallback: T[]): Promise<T[]> {
 }
 
 export async function getDestinations() {
-  return withFallback<Destination>(destinationsQuery, destinations);
+  return withFallback<Destination>(destinationsQuery, destinations, getDatabaseDestinations);
 }
 
 export async function getFeaturedDestinations() {
@@ -57,7 +77,7 @@ export async function getFeaturedDestinations() {
 }
 
 export async function getFeaturedPackages() {
-  return withFallback<TourPackage>(packagesQuery, packages);
+  return withFallback<TourPackage>(packagesQuery, packages, getDatabasePackages);
 }
 
 export async function getPackageBySlug(slug: string) {
@@ -66,15 +86,15 @@ export async function getPackageBySlug(slug: string) {
 }
 
 export async function getExperiences() {
-  return withFallback<Experience>(experiencesQuery, experiences);
+  return withFallback<Experience>(experiencesQuery, experiences, getDatabaseExperiences);
 }
 
 export async function getTestimonials() {
-  return withFallback<Testimonial>(testimonialsQuery, testimonials);
+  return withFallback<Testimonial>(testimonialsQuery, testimonials, getDatabaseTestimonials);
 }
 
 export async function getLatestBlogPosts(limit = 3) {
-  const all = await withFallback<BlogPost>(blogPostsQuery, blogPosts);
+  const all = await withFallback<BlogPost>(blogPostsQuery, blogPosts, getDatabaseBlogPosts);
   return all.slice(0, limit);
 }
 

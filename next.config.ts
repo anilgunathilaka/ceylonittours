@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
         hostname: "cdn.sanity.io",
       },
       {
+        // Images uploaded in /admin/content (Supabase Storage public bucket)
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
         // Google account profile photos
         protocol: "https",
         hostname: "lh3.googleusercontent.com",

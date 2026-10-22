@@ -6,6 +6,11 @@ export async function resetDatabase() {
   if (process.env.TEST_DATABASE_GUARD !== "1") {
     throw new Error("Refusing to reset: not running under the guarded test configuration");
   }
+  await prisma.testimonial.deleteMany();
+  await prisma.tourPackage.deleteMany();
+  await prisma.destination.deleteMany();
+  await prisma.experience.deleteMany();
+  await prisma.blogPost.deleteMany();
   await prisma.bookingStatusHistory.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.account.deleteMany();
