@@ -100,3 +100,24 @@ export async function upsertGoogleUser(input: {
     return { ...user, image: user.image ?? undefined };
   });
 }
+
+/** Account details needed to issue or check a password-reset link. */
+export async function findUserForPasswordReset(where: { email: string } | { id: string }) {
+  return prisma.user.findUnique({
+    where: "email" in where ? { email: normalizeEmail(where.email) } : { id: where.id },
+    select: { id: true, name: true, email: true, passwordHash: true },
+  });
+}
+
+/**
+ * Sets a new password, but only if the stored hash is still the one the reset link was issued
+ * against — so a link can't be used twice, even by two requests racing each other.
+ * Returns false when the password had already changed.
+ */
+export async function replacePassword(userId: string, expectedHash: string | null, newHash: string) {
+  const result = await prisma.user.updateMany({
+    where: { id: userId, passwordHash: expectedHash },
+    data: { passwordHash: newHash },
+  });
+  return result.count === 1;
+}

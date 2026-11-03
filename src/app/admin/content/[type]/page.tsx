@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
-import { Container } from "@/components/ui/Container";
+import { notFound, redirect } from "next/navigation";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { AdminNotice } from "@/components/admin/AdminNotice";
 import { deleteContentAction } from "@/app/admin/content/actions";
 import { getAdminSession } from "@/lib/auth/admin";
@@ -39,28 +38,24 @@ export default async function ContentListPage({
   if (!isContentType(type)) notFound();
 
   const { notice } = await searchParams;
+  // Tour packages are listed in Products, together with their options
+  if (type === "tour-packages") redirect(notice ? `/admin/products?notice=${encodeURIComponent(notice)}` : "/admin/products");
   const config = CONTENT_CONFIG[type];
   const items = await listContent(type);
 
   return (
-    <section className="bg-ivory py-12 lg:py-16">
-      <Container className="flex flex-col gap-8">
-        <header className="flex flex-col gap-4">
-          <AdminNav active="content" />
-          <Link href="/admin/content" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-midnight">
-            <ArrowLeft size={15} /> All content
-          </Link>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h1 className="font-display text-3xl font-semibold text-midnight sm:text-4xl">{config.label}</h1>
-            <Link
-              href={`/admin/content/${type}/new`}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-dark"
-            >
-              <Plus size={16} /> New {config.singular.toLowerCase()}
-            </Link>
-          </div>
-        </header>
-
+    <AdminShell
+      title={config.label}
+      back={{ href: "/admin/content", label: "Website content" }}
+      actions={
+        <Link
+          href={`/admin/content/${type}/new`}
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          <Plus size={16} /> New {config.singular.toLowerCase()}
+        </Link>
+      }
+    >
         {notice && NOTICES[notice] && <AdminNotice message={NOTICES[notice]} />}
 
         {items.length === 0 ? (
@@ -110,7 +105,6 @@ export default async function ContentListPage({
             ))}
           </ul>
         )}
-      </Container>
-    </section>
+    </AdminShell>
   );
 }

@@ -6,6 +6,11 @@ export async function resetDatabase() {
   if (process.env.TEST_DATABASE_GUARD !== "1") {
     throw new Error("Refusing to reset: not running under the guarded test configuration");
   }
+  await prisma.packageView.deleteMany();
+  await prisma.specialOffer.deleteMany();
+  await prisma.wishlistItem.deleteMany();
+  await prisma.reviewVote.deleteMany();
+  await prisma.review.deleteMany();
   await prisma.testimonial.deleteMany();
   await prisma.tourPackage.deleteMany();
   await prisma.destination.deleteMany();
@@ -13,6 +18,9 @@ export async function resetDatabase() {
   await prisma.blogPost.deleteMany();
   await prisma.bookingStatusHistory.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.availabilityBlock.deleteMany();
+  await prisma.availabilityRule.deleteMany();
+  await prisma.tourOption.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
 }

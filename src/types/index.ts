@@ -63,8 +63,16 @@ export interface TourPackage {
   routeSummary?: string;
   itinerary?: {
     title: string;
+    /** "pickup" | "transport" | "stop" | "end"; older entries without a type are stops */
+    type?: "pickup" | "transport" | "stop" | "end";
+    /** e.g. "Guided tour", "Sightseeing" */
     detail?: string;
+    /** e.g. "1 hour", "40 minutes" */
+    duration?: string;
+    admission?: "included" | "free" | "extra_fee" | "optional";
     note?: string;
+    lat?: number;
+    lng?: number;
   }[];
   includes?: string[];
   excludes?: string[];
@@ -81,7 +89,35 @@ export interface TourPackage {
     rating: number;
     text: string;
   }[];
+
+  // --- Booking platform (admin-managed packages only) ---
+  /** Short public "Product ID" */
+  productNumber?: number;
+  /** Extra photos for the gallery, after the main image */
+  gallery?: SanityImage[];
+  meetingPoint?: {
+    type: "meeting_point" | "pickup" | "both";
+    name?: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    instructions?: string;
+    pickupAreas?: string[];
+  };
+  cancellationPolicy?: CancellationPolicy;
+  cancellationNotes?: string;
+  /** Asked at checkout */
+  bookingQuestions?: { question: string; required?: boolean }[];
+  keywords?: string[];
+  foodIncluded?: "none" | "included" | "some" | "for_purchase";
+  foodDetails?: string[];
+  transportTypes?: string[];
+  guideType?: "live_guide" | "driver_guide" | "no_guide" | "ticket_only" | "audio_guide";
+  petFriendly?: boolean;
+  petPolicy?: string;
 }
+
+export type CancellationPolicy = "free_24h" | "free_48h" | "free_7d" | "non_refundable" | "custom";
 
 export interface Experience {
   slug: string;

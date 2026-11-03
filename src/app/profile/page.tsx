@@ -3,14 +3,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { CalendarCheck, CalendarDays, CalendarX, Clock, History, KeyRound, Mail, MapPin, MessageSquare, User } from "lucide-react";
+import { Bus, CalendarCheck, CalendarDays, CalendarX, Clock, Heart, History, KeyRound, Mail, MapPin, MessageSquare, Star, Ticket, User, Users, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { findUserProfile } from "@/lib/auth/users";
-import { getBookingsForUser, groupBookings, type Booking, type BookingStatus } from "@/lib/bookings";
+import { describeGuests, getBookingsForUser, groupBookings, type Booking, type BookingStatus } from "@/lib/bookings";
+import { getReviewsByBooking, type Review } from "@/lib/reviews";
+import { prisma } from "@/lib/db";
+import { WishlistButton } from "@/components/tour-packages/WishlistButton";
+import { OperationForm } from "@/components/admin/OperationForm";
+import { sendCustomerMessageAction } from "@/app/profile/messages-actions";
+import { getMessagesForBookings, type BookingMessage } from "@/lib/booking-messages";
+import { formatCurrency } from "@/lib/utils";
 import { getFeaturedPackages } from "@/lib/content";
 import { formatDisplayDate } from "@/lib/date";
 import type { TourPackage } from "@/types";
@@ -33,7 +40,19 @@ function formatDuration(pkg?: TourPackage) {
   return null;
 }
 
-function BookingCard({ booking, pkg, isPast }: { booking: Booking; pkg?: TourPackage; isPast?: boolean }) {
+function BookingCard({
+  booking,
+  pkg,
+  isPast,
+  review,
+  messages = [],
+}: {
+  booking: Booking;
+  pkg?: TourPackage;
+  isPast?: boolean;
+  review?: Review;
+  messages?: BookingMessage[];
+}) {
   const badge =
     isPast && booking.status === "confirmed"
       ? { label: "Completed", tone: "primary" as const }
@@ -66,7 +85,33 @@ function BookingCard({ booking, pkg, isPast }: { booking: Booking; pkg?: TourPac
           <span className="flex items-center gap-1.5">
             <CalendarDays size={15} />
             {booking.travelDate ? formatDisplayDate(booking.travelDate) : "Date to be confirmed"}
+            {booking.startTime && ` at ${booking.startTime}`}
           </span>
+          {booking.pickupLocation && (
+            <span className="flex items-center gap-1.5">
+              <Bus size={15} />
+              Pickup {booking.pickupTime ? `at ${booking.pickupTime} ` : ""}from {booking.pickupLocation}
+              {!booking.pickupTime && " (time to be confirmed)"}
+            </span>
+          )}
+          {booking.optionTitle && (
+            <span className="flex items-center gap-1.5">
+              <Ticket size={15} />
+              {booking.optionTitle}
+            </span>
+          )}
+          {booking.totalParticipants > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Users size={15} />
+              {describeGuests(booking)}
+            </span>
+          )}
+          {booking.totalPrice !== undefined && (
+            <span className="flex items-center gap-1.5">
+              <Wallet size={15} />
+              {formatCurrency(booking.totalPrice)} · pay on arrival
+            </span>
+          )}
           {duration && (
             <span className="flex items-center gap-1.5">
               <Clock size={15} />
@@ -80,6 +125,36 @@ function BookingCard({ booking, pkg, isPast }: { booking: Booking; pkg?: TourPac
             </span>
           )}
         </div>
+        {booking.status !== "cancelled" && (
+          <details className="rounded-xl bg-midnight/[0.03] px-3 py-2.5 text-sm" open={messages.length > 0 && messages.at(-1)?.sender === "team"}>
+            <summary className="flex cursor-pointer items-center gap-1.5 font-semibold text-midnight">
+              <MessageSquare size={14} /> Messages{messages.length > 0 && ` (${messages.length})`}
+            </summary>
+            <div className="mt-3 flex flex-col gap-2">
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  className={`max-w-[90%] rounded-2xl px-3.5 py-2 ${m.sender === "team" ? "self-start bg-primary/10" : "self-end bg-surface ring-1 ring-border"}`}
+                >
+                  <p className="text-[11px] font-semibold text-slate">
+                    {m.sender === "team" ? "Ceylon IT Tours" : "You"} · {formatDisplayDate(m.createdAt.slice(0, 10))}
+                  </p>
+                  <p className="whitespace-pre-line text-midnight">{m.body}</p>
+                </div>
+              ))}
+              <OperationForm action={sendCustomerMessageAction} submitLabel="Send">
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <textarea
+                  name="body"
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Questions about your booking? Write to us here."
+                  className="w-full resize-y rounded-xl border border-border bg-surface px-3 py-2 text-sm text-midnight focus:border-secondary focus:outline-none"
+                />
+              </OperationForm>
+            </div>
+          </details>
+        )}
         {booking.adminMessage && (
           <div className="rounded-xl bg-primary/5 px-3 py-2.5 text-sm">
             <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary uppercase">
@@ -88,7 +163,25 @@ function BookingCard({ booking, pkg, isPast }: { booking: Booking; pkg?: TourPac
             <p className="whitespace-pre-line text-midnight">{booking.adminMessage}</p>
           </div>
         )}
-        <p className="text-xs text-slate/80">Requested {formatDisplayDate(booking.createdAt.slice(0, 10))}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate/80">
+            Requested {formatDisplayDate(booking.createdAt.slice(0, 10))} · Ref {booking.id.slice(0, 8).toUpperCase()}
+          </p>
+          {isPast && booking.status === "confirmed" && !review && (
+            <Link
+              href={`/profile/reviews/${booking.id}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gold/15 px-4 text-sm font-semibold text-midnight hover:bg-gold/25"
+            >
+              <Star size={15} className="text-gold-dark" /> Write a review
+            </Link>
+          )}
+          {review && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-slate">
+              <Star size={14} className="fill-gold text-gold" /> You rated this {review.rating}/5
+              {review.status === "pending" && " · awaiting approval"}
+            </span>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -102,6 +195,8 @@ function TourSection({
   emptyText,
   bookings,
   packagesBySlug,
+  reviews,
+  messages,
   isPast,
 }: {
   id: string;
@@ -111,6 +206,8 @@ function TourSection({
   emptyText: string;
   bookings: Booking[];
   packagesBySlug: Map<string, TourPackage>;
+  reviews: Map<string, Review>;
+  messages: Map<string, BookingMessage[]>;
   isPast?: boolean;
 }) {
   return (
@@ -129,7 +226,7 @@ function TourSection({
       {bookings.length > 0 ? (
         <div className="flex flex-col gap-3">
           {bookings.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} pkg={packagesBySlug.get(booking.packageSlug)} isPast={isPast} />
+            <BookingCard key={booking.id} booking={booking} pkg={packagesBySlug.get(booking.packageSlug)} isPast={isPast} review={reviews.get(booking.id)} messages={messages.get(booking.id)} />
           ))}
         </div>
       ) : (
@@ -145,10 +242,12 @@ export default async function ProfilePage() {
     redirect("/login?callbackUrl=/profile");
   }
 
-  const [storedUser, bookings, packages] = await Promise.all([
+  const [storedUser, bookings, packages, reviews, wishlist] = await Promise.all([
     findUserProfile(session.user.id),
     getBookingsForUser(session.user.id),
     getFeaturedPackages(),
+    getReviewsByBooking(session.user.id),
+    prisma.wishlistItem.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: "desc" } }),
   ]);
 
   const user = {
@@ -166,6 +265,8 @@ export default async function ProfilePage() {
 
   const { upcoming, pending, past, cancelled } = groupBookings(bookings);
   const packagesBySlug = new Map(packages.map((pkg) => [pkg.slug, pkg]));
+  const messages = await getMessagesForBookings(bookings.map((b) => b.id));
+  const savedTours = wishlist.map((item) => packagesBySlug.get(item.packageSlug)).filter((pkg): pkg is TourPackage => Boolean(pkg));
 
   const details = [
     { icon: User, label: "Full name", value: user.name },
@@ -232,6 +333,8 @@ export default async function ProfilePage() {
             emptyText="No confirmed upcoming tours yet."
             bookings={upcoming}
             packagesBySlug={packagesBySlug}
+            reviews={reviews}
+            messages={messages}
           />
           <TourSection
             id="pending"
@@ -241,6 +344,8 @@ export default async function ProfilePage() {
             emptyText="No pending requests. Pick a package and tap “Check Availability” to request a booking."
             bookings={pending}
             packagesBySlug={packagesBySlug}
+            reviews={reviews}
+            messages={messages}
           />
           <TourSection
             id="past"
@@ -250,6 +355,8 @@ export default async function ProfilePage() {
             emptyText="No past tours yet."
             bookings={past}
             packagesBySlug={packagesBySlug}
+            reviews={reviews}
+            messages={messages}
             isPast
           />
           {cancelled.length > 0 && (
@@ -261,7 +368,40 @@ export default async function ProfilePage() {
               emptyText="No cancelled bookings."
               bookings={cancelled}
               packagesBySlug={packagesBySlug}
+              reviews={reviews}
+              messages={messages}
             />
+          )}
+          {savedTours.length > 0 && (
+            <section id="saved" className="scroll-mt-28 rounded-3xl bg-surface p-6 shadow-card ring-1 ring-border sm:p-8">
+              <header className="mb-5 flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                  <Heart size={20} />
+                </span>
+                <div>
+                  <h2 className="font-display text-xl font-semibold text-midnight">
+                    Saved Tours <span className="text-slate">({savedTours.length})</span>
+                  </h2>
+                  <p className="text-sm text-slate">Tours you saved with the heart button.</p>
+                </div>
+              </header>
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {savedTours.map((pkg) => (
+                  <li key={pkg.slug} className="relative">
+                    <Link href={`/tour-packages/${pkg.slug}`} className="flex gap-3 rounded-2xl p-2 ring-1 ring-border transition-colors hover:bg-midnight/[0.02]">
+                      <span className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl bg-border">
+                        <Image src={pkg.image.url} alt="" fill sizes="96px" className="object-cover" />
+                      </span>
+                      <span className="flex min-w-0 flex-col justify-center pr-10">
+                        <span className="line-clamp-2 text-sm font-semibold text-midnight">{pkg.title}</span>
+                        <span className="text-xs text-slate">From {formatCurrency(pkg.price)}</span>
+                      </span>
+                    </Link>
+                    <WishlistButton slug={pkg.slug} variant="icon" className="absolute top-1/2 right-3 -translate-y-1/2" />
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </div>
       </Container>

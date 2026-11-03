@@ -109,12 +109,17 @@ function parseField(field: Field, formData: FormData, data: Record<string, unkno
       data[field.name] = date;
       return;
     }
-    case "list":
-      data[field.name] = text(formData, field.name)
+    case "list": {
+      const items = text(formData, field.name)
         .split(/\r?\n/)
         .map((line) => line.trim())
-        .filter(Boolean)
-        .slice(0, 100);
+        .filter(Boolean);
+      if (field.max && items.length > field.max) return `${field.label}: at most ${field.max} entries`;
+      data[field.name] = items.slice(0, 100);
+      return;
+    }
+    case "choices":
+      data[field.name] = formData.getAll(field.name).filter((value): value is string => typeof value === "string" && field.options.includes(value));
       return;
     case "multiselect":
       data[field.name] = formData
@@ -145,6 +150,42 @@ function parseField(field: Field, formData: FormData, data: Record<string, unkno
       }
       return;
     }
+    case "gallery": {
+      let items: unknown;
+      try {
+        items = JSON.parse(text(formData, field.name) || "[]");
+      } catch {
+        return `${field.label} could not be read — please re-upload`;
+      }
+      if (!Array.isArray(items)) return `${field.label} could not be read — please re-upload`;
+      const max = field.max ?? 20;
+      if (items.length > max) return `${field.label} can have at most ${max} photos`;
+      const clean: { url: string; alt: string; width?: number; height?: number }[] = [];
+      for (const item of items) {
+        if (typeof item !== "object" || item === null) continue;
+        const { url, alt, width, height } = item as Record<string, unknown>;
+        if (typeof url !== "string" || !isHttpUrl(url)) return `${field.label} must only contain uploaded images`;
+        clean.push({
+          url,
+          alt: typeof alt === "string" ? alt.trim().slice(0, 300) : "",
+          ...(Number.isInteger(width) && (width as number) > 0 ? { width: width as number } : {}),
+          ...(Number.isInteger(height) && (height as number) > 0 ? { height: height as number } : {}),
+        });
+      }
+      data[field.name] = clean;
+      return;
+    }
+    case "location": {
+      const lat = parseNumber(text(formData, `${field.name}Lat`), { label: "Latitude", min: -90, max: 90 });
+      const lng = parseNumber(text(formData, `${field.name}Lng`), { label: "Longitude", min: -180, max: 180 });
+      if ("error" in lat) return lat.error;
+      if ("error" in lng) return lng.error;
+      if ((lat.value === null) !== (lng.value === null)) return "Enter both latitude and longitude, or neither";
+      if (field.required && lat.value === null) return missing;
+      data[`${field.name}Lat`] = lat.value;
+      data[`${field.name}Lng`] = lng.value;
+      return;
+    }
     case "objectList": {
       let rows: unknown;
       try {
@@ -154,14 +195,23 @@ function parseField(field: Field, formData: FormData, data: Record<string, unkno
       }
       if (!Array.isArray(rows)) return `${field.label} could not be read — please re-enter it`;
 
-      const clean: Record<string, string | number>[] = [];
+      const clean: Record<string, string | number | boolean>[] = [];
       for (const [index, row] of rows.slice(0, 100).entries()) {
         if (typeof row !== "object" || row === null) continue;
-        const item: Record<string, string | number> = {};
+        const item: Record<string, string | number | boolean> = {};
         for (const sub of field.fields) {
+          if (sub.kind === "checkbox") {
+            item[sub.name] = (row as Record<string, unknown>)[sub.name] === true;
+            continue;
+          }
           const raw = String((row as Record<string, unknown>)[sub.name] ?? "").trim();
           if (!raw) {
             if (sub.required) return `${field.label}: row ${index + 1} needs a ${sub.label.toLowerCase()}`;
+            continue;
+          }
+          if (sub.kind === "select") {
+            if (!sub.options.includes(raw)) return `${field.label}: row ${index + 1} has an invalid ${sub.label.toLowerCase()}`;
+            item[sub.name] = raw;
             continue;
           }
           if (sub.kind === "number") {

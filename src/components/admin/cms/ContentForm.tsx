@@ -1,13 +1,59 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition, type FormEvent } from "react";
-import { AlertCircle, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
 import { saveContentAction, type SaveContentState } from "@/app/admin/content/actions";
-import { CONTENT_CONFIG, slugify, type ContentType, type Field, type SubField } from "@/lib/cms/config";
-import type { FormValues, ImageValue } from "@/lib/cms/form-values";
+import { GalleryInput, LocationInput } from "@/components/admin/cms/MediaInputs";
+import { uploadFile } from "@/components/admin/cms/upload";
+import { CONTENT_CONFIG, slugify, type ContentType, type Field, type Section, type SubField } from "@/lib/cms/config";
+import type { FormValues, ImageValue, LocationValue, ObjectRow } from "@/lib/cms/form-values";
 import { cn } from "@/lib/utils";
 
 type Option = { value: string; label: string };
+
+/** Is a field filled in? `get` reads one submitted value, `getAll` all values of a name. */
+function isFilled(field: Field, get: (name: string) => string, getAll: (name: string) => string[]) {
+  switch (field.kind) {
+    case "checkbox":
+      return null; // a checkbox is always "answered"
+    case "image":
+      return get(`${field.name}Url`) !== "";
+    case "location":
+      return get(`${field.name}Lat`) !== "";
+    case "gallery":
+    case "objectList": {
+      try {
+        return (JSON.parse(get(field.name) || "[]") as unknown[]).length > 0;
+      } catch {
+        return false;
+      }
+    }
+    case "multiselect":
+    case "choices":
+      return getAll(field.name).length > 0;
+    default:
+      return get(field.name).trim() !== "";
+  }
+}
+
+/** A step is complete when its required fields are filled — or, with none required, when anything is filled */
+function sectionComplete(section: Section, get: (name: string) => string, getAll: (name: string) => string[]) {
+  const answers = section.fields.map((field) => ({ field, filled: isFilled(field, get, getAll) }));
+  const required = answers.filter((a) => a.field.required);
+  if (required.length > 0) return required.every((a) => a.filled);
+  return answers.some((a) => a.filled === true);
+}
+
+function readForm(form: HTMLFormElement) {
+  const data = new FormData(form);
+  return {
+    get: (name: string) => {
+      const value = data.get(name);
+      return typeof value === "string" ? value : "";
+    },
+    getAll: (name: string) => data.getAll(name).filter((v): v is string => typeof v === "string"),
+  };
+}
 type Options = { destinations: Option[]; tourPackages: Option[] };
 
 const inputClass =
@@ -54,13 +100,49 @@ export function ContentForm({
   const errors = state.errors ?? {};
   const busy = pending || uploading > 0;
 
+  // Wizard: one section per step. Hidden steps stay in the form, so saving from any step sends every field.
+  const [step, setStep] = useState(0);
+  const sectionErrors = config.sections.map((section) => section.fields.some((field) => errors[field.name]));
+  const [shownErrors, setShownErrors] = useState(state.errors);
+  if (state.errors !== shownErrors) {
+    // Jump to the first step with a problem after a failed save
+    setShownErrors(state.errors);
+    const first = sectionErrors.indexOf(true);
+    if (config.wizard && first >= 0) setStep(first);
+  }
+  const lastStep = config.sections.length - 1;
+
+  // Wizard progress, re-read from the form whenever something changes (hidden JSON fields update on clicks)
+  const formRef = useRef<HTMLFormElement>(null);
+  const [complete, setComplete] = useState<boolean[]>(() => config.sections.map(() => false));
+  const measured = useRef(false);
+  const measure = () => {
+    if (!config.wizard || !formRef.current) return;
+    const { get, getAll } = readForm(formRef.current);
+    const next = config.sections.map((section) => sectionComplete(section, get, getAll));
+    setComplete((current) => (current.every((v, i) => v === next[i]) ? current : next));
+  };
+  const scheduleMeasure = () => requestAnimationFrame(measure);
+  const progress = Math.round((complete.filter(Boolean).length / config.sections.length) * 100);
+
   return (
     <form
+      ref={(node) => {
+        formRef.current = node;
+        // First measurement once the form exists (callback ref, so no effect is needed)
+        if (node && !measured.current) {
+          measured.current = true;
+          scheduleMeasure();
+        }
+      }}
       onSubmit={onSubmit}
       onInput={(event) => {
         const target = event.target as HTMLInputElement;
         if (slugSource && target.name === slugSource && !slugTouched) setSlug(slugify(target.value));
+        scheduleMeasure();
       }}
+      onChange={scheduleMeasure}
+      onClick={scheduleMeasure}
       className="flex flex-col gap-8"
       noValidate
     >
@@ -74,10 +156,65 @@ export function ContentForm({
         </div>
       )}
 
-      {config.sections.map((section) => (
-        <fieldset key={section.title} className="flex flex-col gap-5 rounded-2xl bg-surface p-5 shadow-card sm:p-7">
+      {config.wizard && (
+        <div className="flex items-center gap-3" aria-label={`${progress}% complete`}>
+          <span className="h-2 flex-1 overflow-hidden rounded-full bg-border">
+            <span className="block h-full rounded-full bg-nature transition-all" style={{ width: `${progress}%` }} />
+          </span>
+          <span className="w-24 text-right text-sm font-semibold text-midnight">{progress}% complete</span>
+        </div>
+      )}
+
+      {config.wizard && (
+        <ol className="flex gap-2 overflow-x-auto pb-1" aria-label="Steps">
+          {config.sections.map((section, index) => (
+            <li key={section.title} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => setStep(index)}
+                aria-current={index === step ? "step" : undefined}
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-full pr-4 pl-1.5 text-sm font-semibold ring-1 transition-colors",
+                  index === step ? "bg-primary text-white ring-primary" : "bg-surface text-midnight ring-border hover:ring-primary/40",
+                  sectionErrors[index] && index !== step && "ring-accent",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-xs",
+                    index === step
+                      ? "bg-white/20"
+                      : sectionErrors[index]
+                        ? "bg-accent text-white"
+                        : complete[index]
+                          ? "bg-nature/15 text-nature"
+                          : "bg-midnight/5",
+                  )}
+                >
+                  {sectionErrors[index] ? "!" : complete[index] && index !== step ? <Check size={14} /> : index + 1}
+                </span>
+                {section.title}
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {config.sections.map((section, index) => (
+        <fieldset
+          key={section.title}
+          hidden={config.wizard && index !== step}
+          className="flex flex-col gap-5 rounded-2xl bg-surface p-5 shadow-card sm:p-7"
+        >
           <legend className="sr-only">{section.title}</legend>
-          <h2 className="font-display text-lg font-semibold text-midnight">{section.title}</h2>
+          <h2 className="font-display text-lg font-semibold text-midnight">
+            {config.wizard && (
+              <span className="text-slate">
+                Step {index + 1} of {lastStep + 1} ·{" "}
+              </span>
+            )}
+            {section.title}
+          </h2>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {section.fields.map((field) => (
               <FieldInput
@@ -99,6 +236,27 @@ export function ContentForm({
               />
             ))}
           </div>
+          {config.wizard && (
+            <div className="flex justify-between gap-3 border-t border-border pt-5">
+              <button
+                type="button"
+                onClick={() => setStep(index - 1)}
+                disabled={index === 0}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-midnight hover:bg-midnight/5 disabled:invisible"
+              >
+                <ArrowLeft size={15} /> Back
+              </button>
+              {index < lastStep && (
+                <button
+                  type="button"
+                  onClick={() => setStep(index + 1)}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-midnight px-5 text-sm font-semibold text-white hover:bg-midnight/85"
+                >
+                  Next: {config.sections[index + 1].title} <ArrowRight size={15} />
+                </button>
+              )}
+            </div>
+          )}
         </fieldset>
       ))}
 
@@ -145,7 +303,7 @@ function FieldInput({
   slug: { value: string; onChange: (value: string) => void };
   onUploading: (delta: number) => void;
 }) {
-  const wide = ["textarea", "list", "image", "objectList", "multiselect"].includes(field.kind);
+  const wide = ["textarea", "list", "image", "gallery", "location", "objectList", "multiselect", "choices"].includes(field.kind);
   const label = (
     <span className={labelClass}>
       {field.label}
@@ -210,7 +368,7 @@ function FieldInput({
           <option value="">{field.required ? "Choose…" : "— None —"}</option>
           {field.options.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {field.labels?.[option] ?? option}
             </option>
           ))}
         </select>
@@ -257,6 +415,21 @@ function FieldInput({
           </div>
         );
       break;
+    case "choices":
+      control = (
+        <div className="flex flex-wrap gap-2">
+          {field.options.map((option) => (
+            <label
+              key={option}
+              className="flex cursor-pointer items-center gap-2 rounded-full border border-border px-3.5 py-1.5 text-sm text-midnight has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+            >
+              <input type="checkbox" name={field.name} value={option} defaultChecked={(value as string[]).includes(option)} className="accent-primary" />
+              {option}
+            </label>
+          ))}
+        </div>
+      );
+      break;
     case "image":
       control = (
         <ImageInput
@@ -269,8 +442,23 @@ function FieldInput({
         />
       );
       break;
+    case "gallery":
+      control = (
+        <GalleryInput
+          name={field.name}
+          folder={type}
+          initial={value as ImageValue[]}
+          max={field.max ?? 20}
+          fallbackAlt={String(values.title ?? values.name ?? "")}
+          onUploading={onUploading}
+        />
+      );
+      break;
+    case "location":
+      control = <LocationInput name={field.name} initial={value as LocationValue} invalid={!!error} />;
+      break;
     case "objectList":
-      control = <ObjectListInput name={field.name} fields={field.fields} initial={value as Record<string, string | number>[]} />;
+      control = <ObjectListInput name={field.name} fields={field.fields} initial={value as ObjectRow[]} />;
       break;
   }
 
@@ -309,14 +497,8 @@ function ImageInput({
     setBusy(true);
     onUploading(1);
     try {
-      const size = await readImageSize(file);
-      const body = new FormData();
-      body.set("file", file);
-      body.set("folder", folder);
-      const res = await fetch("/api/admin/upload", { method: "POST", body });
-      const result = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !result.url) throw new Error(result.error ?? "Upload failed — please try again.");
-      setImage((current) => ({ url: result.url!, alt: current.alt || fallbackAlt, ...size }));
+      const uploaded = await uploadFile(file, folder);
+      setImage((current) => ({ ...uploaded, alt: current.alt || fallbackAlt }));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed — please try again.");
     } finally {
@@ -384,26 +566,10 @@ function ImageInput({
   );
 }
 
-function readImageSize(file: File) {
-  return new Promise<{ width?: number; height?: number }>((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      resolve({});
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  });
-}
-
-function ObjectListInput({ name, fields, initial }: { name: string; fields: SubField[]; initial: Record<string, string | number>[] }) {
+function ObjectListInput({ name, fields, initial }: { name: string; fields: SubField[]; initial: ObjectRow[] }) {
   const [rows, setRows] = useState(() => initial.map((row) => ({ key: crypto.randomUUID(), row })));
 
-  const update = (key: string, field: string, value: string) =>
+  const update = (key: string, field: string, value: string | boolean) =>
     setRows((current) => current.map((entry) => (entry.key === key ? { ...entry, row: { ...entry.row, [field]: value } } : entry)));
 
   return (
@@ -422,7 +588,18 @@ function ObjectListInput({ name, fields, initial }: { name: string; fields: SubF
             </button>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {fields.map((sub) => (
+            {fields.map((sub) =>
+              sub.kind === "checkbox" ? (
+                <label key={sub.name} className="flex items-center gap-2 self-end py-2 text-sm font-medium text-midnight">
+                  <input
+                    type="checkbox"
+                    checked={entry.row[sub.name] === true}
+                    onChange={(event) => update(entry.key, sub.name, event.target.checked)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  {sub.label}
+                </label>
+              ) : (
               <label key={sub.name} className={cn("flex flex-col gap-1", sub.kind === "textarea" && "sm:col-span-2")}>
                 <span className={labelClass}>
                   {sub.label}
@@ -435,6 +612,19 @@ function ObjectListInput({ name, fields, initial }: { name: string; fields: SubF
                     rows={3}
                     className={cn(inputClass, "resize-y bg-surface py-2")}
                   />
+                ) : sub.kind === "select" ? (
+                  <select
+                    value={String(entry.row[sub.name] ?? "")}
+                    onChange={(event) => update(entry.key, sub.name, event.target.value)}
+                    className={cn(inputClass, "h-10 bg-surface")}
+                  >
+                    <option value="">—</option>
+                    {sub.options.map((option) => (
+                      <option key={option} value={option}>
+                        {sub.labels?.[option] ?? option}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <input
                     type={sub.kind === "number" ? "number" : "text"}
@@ -445,7 +635,8 @@ function ObjectListInput({ name, fields, initial }: { name: string; fields: SubF
                   />
                 )}
               </label>
-            ))}
+              ),
+            )}
           </div>
         </div>
       ))}

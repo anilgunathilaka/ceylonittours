@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { SiteChrome } from "@/components/layout/SiteChrome";
 import { AuthSessionProvider } from "@/components/auth/AuthSessionProvider";
 
 const satoshi = localFont({
@@ -97,11 +98,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
 
-          <Header />
-          <main id="main-content" className="flex-1">
+          <SiteChrome header={<Header />} footer={<Footer />}>
             {children}
-          </main>
-          <Footer />
+          </SiteChrome>
         </AuthSessionProvider>
       </body>
     </html>

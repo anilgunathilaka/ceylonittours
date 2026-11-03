@@ -3,7 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth/admin";
-import { CONTENT_CONFIG, isContentType } from "@/lib/cms/config";
+import { CONTENT_CONFIG, contentListHref, isContentType } from "@/lib/cms/config";
 import { createContent, deleteContent, updateContent } from "@/lib/cms/repository";
 import { parseContentForm } from "@/lib/cms/validation";
 import { CONTENT_CACHE_TAG } from "@/lib/content/database";
@@ -64,7 +64,7 @@ export async function saveContentAction(_prev: SaveContentState, formData: FormD
 
   refreshSite();
   const notice = parsed.status === "PUBLISHED" ? "published" : "saved";
-  redirect(`/admin/content/${type}?notice=${notice}`);
+  redirect(`${contentListHref(type)}?notice=${notice}`);
 }
 
 export async function deleteContentAction(formData: FormData) {
@@ -78,9 +78,9 @@ export async function deleteContentAction(formData: FormData) {
     await deleteContent(type, id);
   } catch (error) {
     console.error(`Deleting ${CONTENT_CONFIG[type].singular} failed:`, error);
-    redirect(`/admin/content/${type}?notice=delete-failed`);
+    redirect(`${contentListHref(type)}?notice=delete-failed`);
   }
 
   refreshSite();
-  redirect(`/admin/content/${type}?notice=deleted`);
+  redirect(`${contentListHref(type)}?notice=deleted`);
 }

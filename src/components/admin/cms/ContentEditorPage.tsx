@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
-import { Container } from "@/components/ui/Container";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { ExternalLink } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { ContentForm } from "@/components/admin/cms/ContentForm";
-import { CONTENT_CONFIG, type ContentType } from "@/lib/cms/config";
+import { CONTENT_CONFIG, contentListHref, type ContentType } from "@/lib/cms/config";
 import type { FormValues } from "@/lib/cms/form-values";
 import type { FieldOptions } from "@/lib/cms/repository";
 
@@ -31,32 +30,26 @@ export function ContentEditorPage({
   const viewHref = id && status === "PUBLISHED" && slug ? publicPath[type]?.(slug) : undefined;
 
   return (
-    <section className="bg-ivory py-12 lg:py-16">
-      <Container className="flex max-w-4xl flex-col gap-8">
-        <header className="flex flex-col gap-4">
-          <AdminNav active="content" />
-          <Link href={`/admin/content/${type}`} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-midnight">
-            <ArrowLeft size={15} /> {config.label}
+    <AdminShell
+      narrow
+      title={id ? `Edit ${config.singular.toLowerCase()}` : `New ${config.singular.toLowerCase()}`}
+      back={{ href: contentListHref(type), label: type === "tour-packages" ? "Tours & options" : config.label }}
+      actions={
+        viewHref && (
+          <Link href={viewHref} target="_blank" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-dark">
+            View on site <ExternalLink size={14} />
           </Link>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="font-display text-3xl font-semibold text-midnight">
-              {id ? `Edit ${config.singular.toLowerCase()}` : `New ${config.singular.toLowerCase()}`}
-            </h1>
-            {viewHref && (
-              <Link href={viewHref} target="_blank" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-dark">
-                View on site <ExternalLink size={14} />
-              </Link>
-            )}
-          </div>
-          {id && (
-            <p className="text-sm text-slate">
-              Status: <strong>{status === "PUBLISHED" ? "Published" : "Draft"}</strong>. “Save as draft” hides it from the website.
-            </p>
-          )}
-        </header>
-
-        <ContentForm type={type} id={id} status={status} values={values} options={options} />
-      </Container>
-    </section>
+        )
+      }
+      description={
+        id && (
+          <>
+            Status: <strong>{status === "PUBLISHED" ? "Published" : "Draft"}</strong>. “Save as draft” hides it from the website.
+          </>
+        )
+      }
+    >
+      <ContentForm type={type} id={id} status={status} values={values} options={options} />
+    </AdminShell>
   );
 }

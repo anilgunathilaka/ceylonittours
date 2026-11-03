@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, ShieldCheck } from "lucide-react";
-import { Container } from "@/components/ui/Container";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { ChevronRight } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { getAdminSession } from "@/lib/auth/admin";
-import { CONTENT_CONFIG, CONTENT_TYPES } from "@/lib/cms/config";
+import { CONTENT_CONFIG, CONTENT_SECTION_TYPES } from "@/lib/cms/config";
 import { countContent } from "@/lib/cms/repository";
 
 export const metadata: Metadata = {
@@ -16,21 +15,23 @@ export const metadata: Metadata = {
 export default async function AdminContentPage() {
   if (!(await getAdminSession())) notFound();
 
-  const counts = await Promise.all(CONTENT_TYPES.map((type) => countContent(type)));
+  const counts = await Promise.all(CONTENT_SECTION_TYPES.map((type) => countContent(type)));
   const source = process.env.CONTENT_SOURCE === "database" ? "database" : "sanity";
 
   return (
-    <section className="bg-ivory py-12 lg:py-16">
-      <Container className="flex flex-col gap-8">
+    <AdminShell
+      title="Website content"
+      description={
+        <>
+          Only <strong>published</strong> items appear on the website; drafts stay here until you publish them. Tour packages are managed under{" "}
+          <Link href="/admin/products" className="font-semibold text-primary hover:underline">
+            Products
+          </Link>
+          .
+        </>
+      }
+    >
         <header className="flex flex-col gap-4">
-          <span className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <ShieldCheck size={18} /> Admin
-          </span>
-          <AdminNav active="content" />
-          <h1 className="font-display text-3xl font-semibold text-midnight sm:text-4xl">Manage Content</h1>
-          <p className="text-sm text-slate">
-            Only <strong>published</strong> items appear on the website; drafts stay here until you publish them.
-          </p>
           {source !== "database" && (
             <p className="rounded-xl bg-gold/10 px-4 py-3 text-sm text-midnight ring-1 ring-gold/30">
               The website is still reading content from <strong>Sanity</strong>. Content saved here is stored safely but
@@ -40,7 +41,7 @@ export default async function AdminContentPage() {
         </header>
 
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CONTENT_TYPES.map((type, index) => (
+          {CONTENT_SECTION_TYPES.map((type, index) => (
             <li key={type}>
               <Link
                 href={`/admin/content/${type}`}
@@ -57,7 +58,6 @@ export default async function AdminContentPage() {
             </li>
           ))}
         </ul>
-      </Container>
-    </section>
+    </AdminShell>
   );
 }

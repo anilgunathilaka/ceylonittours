@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { toISODate } from "@/lib/date";
 import type { Prisma } from "@/generated/prisma/client";
 import { BookingStatus as DbStatus } from "@/generated/prisma/enums";
+import { assertSeatsForMove } from "@/lib/products/options";
 
 /**
  * Booking requests made by signed-in users. New requests are "pending";
@@ -41,9 +42,33 @@ export type Booking = {
   /** Optimistic-concurrency version; admin updates must send the version they saw */
   version: number;
   history?: BookingHistoryEntry[];
+  /** Set for bookings made through the booking widget */
+  optionId?: string;
+  optionTitle?: string;
+  startTime?: string;
+  participants: BookingParticipant[];
+  totalParticipants: number;
+  totalPrice?: number;
+  paymentMethod: string;
+  language?: string;
+  pickupLocation?: string;
+  pickupTime?: string;
+  offerName?: string;
+  discountPercent?: number;
+  answers: { question: string; answer: string }[];
   createdAt: string;
   updatedAt: string;
 };
+
+export type BookingParticipant = { category: string; label: string; count: number; unitPrice: number };
+
+const jsonArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+/** "2 × Adult, 1 × Child" */
+export function describeGuests(booking: Pick<Booking, "participants" | "totalParticipants">) {
+  if (booking.participants.length === 0) return `${booking.totalParticipants} guests`;
+  return booking.participants.map((p) => `${p.count} × ${p.label}`).join(", ");
+}
 
 export class BookingConflictError extends Error {
   constructor() {
@@ -63,7 +88,7 @@ const fromDbDate = (value: Date | null) => (value ? value.toISOString().slice(0,
 const historyInclude = { history: { orderBy: { createdAt: "asc" } } } satisfies Prisma.BookingInclude;
 type BookingRow = Prisma.BookingGetPayload<{ include: typeof historyInclude }>;
 
-function toBooking(row: BookingRow | Prisma.BookingGetPayload<object>): Booking {
+export function toBooking(row: BookingRow | Prisma.BookingGetPayload<object>): Booking {
   return {
     id: row.id,
     userId: row.userId,
@@ -82,6 +107,19 @@ function toBooking(row: BookingRow | Prisma.BookingGetPayload<object>): Booking 
     cancelledAt: row.cancelledAt?.toISOString(),
     cancelledBy: row.cancelledBy ?? undefined,
     version: row.version,
+    optionId: row.optionId ?? undefined,
+    optionTitle: row.optionTitle ?? undefined,
+    startTime: row.startTime ?? undefined,
+    participants: jsonArray<BookingParticipant>(row.participants),
+    totalParticipants: row.totalParticipants,
+    totalPrice: row.totalPrice ?? undefined,
+    paymentMethod: row.paymentMethod,
+    language: row.language ?? undefined,
+    pickupLocation: row.pickupLocation ?? undefined,
+    pickupTime: row.pickupTime ?? undefined,
+    offerName: row.offerName ?? undefined,
+    discountPercent: row.discountPercent ?? undefined,
+    answers: jsonArray<{ question: string; answer: string }>(row.answers),
     history:
       "history" in row
         ? row.history.map((entry) => ({
@@ -157,12 +195,30 @@ export async function updateBookingStatus(
   },
 ) {
   return prisma.$transaction(async (tx) => {
-    const current = await tx.booking.findUnique({ where: { id }, select: { travelDate: true } });
+    const current = await tx.booking.findUnique({
+      where: { id },
+      select: { travelDate: true, status: true, optionId: true, startTime: true, totalParticipants: true },
+    });
     if (!current) return null;
 
     const travelDate = toDbDate(update.travelDate) ?? current.travelDate ?? undefined;
     if (update.status === "confirmed" && !travelDate) {
       throw new BookingValidationError("Set a travel date before confirming.");
+    }
+
+    // A seat-holding booking that moves date or comes back from cancelled must fit the slot
+    const moved = travelDate?.getTime() !== current.travelDate?.getTime();
+    const reopened = current.status === DbStatus.CANCELLED;
+    if (update.status !== "cancelled" && (moved || reopened) && current.optionId && current.startTime && travelDate) {
+      try {
+        await assertSeatsForMove(
+          tx,
+          { id, optionId: current.optionId, startTime: current.startTime, totalParticipants: current.totalParticipants },
+          fromDbDate(travelDate)!,
+        );
+      } catch (error) {
+        throw new BookingValidationError(error instanceof Error ? error.message : "Not enough spots on that date.");
+      }
     }
 
     const now = new Date();

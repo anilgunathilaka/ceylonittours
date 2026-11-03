@@ -80,7 +80,7 @@ describe("admin content", () => {
 
   it("creates, publishes and refreshes the site", async () => {
     const result = await saveAs(packageForm());
-    expect(result.redirect).toBe("/admin/content/tour-packages?notice=published");
+    expect(result.redirect).toBe("/admin/products?notice=published");
     expect(cacheMocks.updateTag).toHaveBeenCalledWith("cms-content");
     expect(cacheMocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
 
@@ -111,7 +111,7 @@ describe("admin content", () => {
     expect(await getDatabasePackages()).toHaveLength(1);
 
     const result = await saveAs(packageForm({ id: published.id, status: "DRAFT", title: "Edited" }));
-    expect(result.redirect).toBe("/admin/content/tour-packages?notice=saved");
+    expect(result.redirect).toBe("/admin/products?notice=saved");
     expect(await getDatabasePackages()).toHaveLength(0);
     expect((await prisma.tourPackage.findUniqueOrThrow({ where: { id: published.id } })).title).toBe("Edited");
   });
@@ -151,7 +151,7 @@ describe("admin content", () => {
     const remove = new FormData();
     remove.set("type", "tour-packages");
     remove.set("id", tour.id);
-    await expect(deleteContentAction(remove)).rejects.toMatchObject({ url: "/admin/content/tour-packages?notice=deleted" });
+    await expect(deleteContentAction(remove)).rejects.toMatchObject({ url: "/admin/products?notice=deleted" });
     expect((await getDatabaseTestimonials())[0]).toMatchObject({ name: "Sam", tripName: "" });
   });
 

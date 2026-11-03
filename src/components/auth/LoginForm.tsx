@@ -17,6 +17,7 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
+  const passwordReset = searchParams.get("reset") === "1";
   const [formError, setFormError] = useState<string | null>(() => {
     const error = searchParams.get("error");
     if (!error) return null;
@@ -72,7 +73,15 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
         error={errors.password?.message}
         {...register("password")}
       />
+      <Link href="/forgot-password" className="-mt-2 self-end text-sm font-semibold text-primary hover:underline">
+        Forgot password?
+      </Link>
 
+      {passwordReset && !formError && (
+        <p role="status" className="rounded-xl bg-nature/10 px-4 py-3 text-sm font-medium text-midnight ring-1 ring-nature/30">
+          Your password has been changed. Sign in with your new password.
+        </p>
+      )}
       {formError && <p className="text-sm font-medium text-accent-dark">{formError}</p>}
 
       <Button type="submit" size="lg" className="w-full justify-center" disabled={isSubmitting}>

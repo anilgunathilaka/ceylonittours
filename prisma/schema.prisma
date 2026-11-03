@@ -31,6 +31,9 @@ model User {
   accounts       Account[]
   bookings       Booking[]
   historyEntries BookingStatusHistory[]
+  reviews        Review[]
+  reviewVotes    ReviewVote[]
+  wishlist       WishlistItem[]
 
   @@map("users")
 }
@@ -74,14 +77,45 @@ model Booking {
   cancelledBy         String?
   /// Optimistic-concurrency counter: every admin update must match the version it was based on
   version             Int           @default(0)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
 
-  user    User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
-  history BookingStatusHistory[]
+  /// Bookable option chosen by the customer (null for enquiry-style requests)
+  optionId          String?
+  /// Option title snapshot taken at booking time
+  optionTitle       String?
+  /// "HH:MM" start time of the booked slot
+  startTime         String?
+  /// [{ category, label, count, unitPrice }]
+  participants      Json    @default("[]")
+  /// Seats this booking holds; counted against the slot capacity while pending or confirmed
+  totalParticipants Int     @default(0)
+  /// Price quoted at booking time (USD)
+  totalPrice        Float?
+  /// Payment is collected on the day; online payment comes later
+  paymentMethod     String  @default("pay_on_arrival")
+  /// Guide language chosen when booking
+  language          String?
+  /// Hotel / address the customer chose for pickup
+  pickupLocation    String?
+  /// "HH:MM" pickup time set by the team (pickup planner)
+  pickupTime        String?
+  /// Special offer applied when booking
+  offerName         String?
+  discountPercent   Float?
+  /// [{ question, answer }]
+  answers           Json    @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  option   TourOption?            @relation(fields: [optionId], references: [id], onDelete: SetNull)
+  history  BookingStatusHistory[]
+  review   Review?
+  messages BookingMessage[]
 
   @@index([userId, createdAt])
   @@index([status, travelDate])
+  @@index([optionId, travelDate, startTime])
   @@map("bookings")
 }
 
@@ -115,6 +149,8 @@ enum ContentStatus {
 
 model TourPackage {
   id               String        @id @default(uuid())
+  /// Short public number shown as "Product ID" on the tour page
+  productNumber    Int           @unique @default(autoincrement())
   slug             String        @unique
   status           ContentStatus @default(DRAFT)
   title            String
@@ -163,6 +199,34 @@ model TourPackage {
   aiReviewSummary  String?
   /// [{ name, country, date, rating, text }]
   reviewHighlights Json    @default("[]")
+
+  /// Extra photos shown in the gallery: [{ url, alt, width?, height? }]
+  gallery             Json     @default("[]")
+  /// "meeting_point" | "pickup" | "both"
+  meetingType         String?
+  meetingPointName    String?
+  meetingPointAddress String?
+  meetingLat          Float?
+  meetingLng          Float?
+  meetingInstructions String?
+  /// Hotels or areas where pickup is offered
+  pickupAreas         String[] @default([])
+  /// "free_24h" | "free_48h" | "free_7d" | "non_refundable" | "custom"
+  cancellationPolicy  String?
+  cancellationNotes   String?
+  /// Questions asked at checkout: [{ question, required? }]
+  bookingQuestions    Json     @default("[]")
+  /// Search tags, up to 15
+  keywords            String[] @default([])
+  /// "none" | "included" | "some" | "for_purchase"
+  foodIncluded        String?
+  foodDetails         String[] @default([])
+  /// Main transport used during the activity, e.g. "Tuk tuk", "Train"
+  transportTypes      String[] @default([])
+  /// "live_guide" | "driver_guide" | "no_guide" | "ticket_only" | "audio_guide"
+  guideType           String?
+  petFriendly         Boolean  @default(false)
+  petPolicy           String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -258,4 +322,214 @@ model BlogPost {
 
   @@index([status, publishedAt])
   @@map("blog_posts")
+}
+
+// ---------------------------------------------------------------------------
+// Bookable products: options, pricing and availability (linked to a package by slug,
+// so they work whichever content source serves the package), plus customer reviews.
+// ---------------------------------------------------------------------------
+
+model TourOption {
+  id                   String   @id @default(uuid())
+  packageSlug          String
+  title                String
+  description          String   @default("")
+  durationLabel        String?
+  languages            String[] @default([])
+  pickupIncluded       Boolean  @default(false)
+  isPrivate            Boolean  @default(false)
+  /// "per_person" | "per_group"
+  pricingMode          String   @default("per_person")
+  /// Per-person prices: [{ category, label, ageMin?, ageMax?, price }]
+  prices               Json     @default("[]")
+  /// Per-group prices: [{ minPeople, maxPeople, price }]
+  groupTiers           Json     @default("[]")
+  /// Seasonal adjustments: [{ name, start (YYYY-MM-DD), end, adjustPercent }]
+  seasons              Json     @default("[]")
+  minParticipants      Int      @default(1)
+  maxParticipants      Int?
+  /// Bookings close this many hours before the start time
+  cutoffHours          Int      @default(24)
+  /// Per start time cut-off overrides: { "08:00": 12 }
+  slotCutoffs          Json     @default("{}")
+  /// Once a slot has its first booking, keep taking bookings until it starts
+  lastMinuteAfterFirst Boolean  @default(false)
+  /// Confirm bookings automatically instead of leaving them pending
+  instantConfirm       Boolean  @default(false)
+  /// "none" | "area" (any address in an area) | "locations" (a fixed list)
+  pickupMode           String   @default("none")
+  /// Description of the pickup area, e.g. "Any hotel in Kandy city"
+  pickupArea           String?
+  pickupLocations      String[] @default([])
+  /// "at_start" | "before_start"
+  pickupTiming         String?
+  /// For "before_start": typical minutes before the start time
+  pickupMinutesBefore  Int?
+  /// "day_before" | "on_booking"
+  pickupConfirmation   String?
+  wheelchairAccessible Boolean  @default(false)
+  skipTheLine          Boolean  @default(false)
+  /// e.g. "Audio guide", "Information booklet"
+  guideMaterials       String[] @default([])
+  active               Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  rules    AvailabilityRule[]
+  blocks   AvailabilityBlock[]
+  bookings Booking[]
+
+  @@index([packageSlug, sortOrder])
+  @@map("tour_options")
+}
+
+/// Recurring availability: on the listed weekdays between startDate and endDate, each start time has `capacity` seats
+model AvailabilityRule {
+  id         String    @id @default(uuid())
+  optionId   String
+  startDate  DateTime  @db.Date
+  /// Open-ended when null
+  endDate    DateTime? @db.Date
+  /// 0 = Sunday … 6 = Saturday
+  weekdays   Int[]     @default([0, 1, 2, 3, 4, 5, 6])
+  /// "HH:MM"
+  startTimes String[]
+  capacity   Int
+  createdAt  DateTime  @default(now())
+
+  option TourOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([optionId])
+  @@map("availability_rules")
+}
+
+/// A closed date (or a single closed start time on that date)
+model AvailabilityBlock {
+  id        String   @id @default(uuid())
+  optionId  String
+  date      DateTime @db.Date
+  /// Null closes the whole day
+  startTime String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  option TourOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([optionId, date])
+  @@map("availability_blocks")
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// One review per completed booking, shown on the package page once approved
+model Review {
+  id              String       @id @default(uuid())
+  bookingId       String       @unique
+  userId          String
+  packageSlug     String
+  rating          Int
+  title           String?
+  text            String
+  /// Name shown with the review
+  authorName      String
+  status          ReviewStatus @default(PENDING)
+  adminReply      String?
+  repliedAt       DateTime?
+  /// Reviewer's country, e.g. "United Kingdom"
+  country         String?
+  /// Browser language when the review was written, e.g. "en" (for "Loved by English speakers")
+  language        String?
+  /// Optional 1–5 ratings by category
+  guideRating     Int?
+  transportRating Int?
+  valueRating     Int?
+  /// Customer photos: [{ url, width?, height? }]
+  photos          Json         @default("[]")
+  helpfulCount    Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  booking Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes   ReviewVote[]
+
+  @@index([packageSlug, status, createdAt])
+  @@map("reviews")
+}
+
+/// "Was this helpful?" — one vote per signed-in user per review
+model ReviewVote {
+  reviewId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([reviewId, userId])
+  @@map("review_votes")
+}
+
+/// Tours a signed-in user saved with the heart button
+model WishlistItem {
+  userId      String
+  packageSlug String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, packageSlug])
+  @@index([userId, createdAt])
+  @@map("wishlist_items")
+}
+
+/// Messages between the team and a customer about one booking
+model BookingMessage {
+  id          String   @id @default(uuid())
+  bookingId   String
+  /// "team" | "customer"
+  sender      String
+  senderEmail String
+  body        String
+  createdAt   DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_messages")
+}
+
+/// Discount applied automatically to matching bookings
+model SpecialOffer {
+  id              String    @id @default(uuid())
+  name            String
+  /// "early_bird" (book N+ days ahead) | "last_minute" (within N days) | "dates" (travel dates)
+  type            String
+  discountPercent Float
+  /// Empty = every tour
+  packageSlugs    String[]  @default([])
+  /// early_bird: minimum days ahead; last_minute: maximum days ahead
+  days            Int?
+  travelFrom      DateTime? @db.Date
+  travelTo        DateTime? @db.Date
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("special_offers")
+}
+
+/// Daily page views per tour, for conversion stats
+model PackageView {
+  packageSlug String
+  day         DateTime @db.Date
+  count       Int      @default(0)
+
+  @@id([packageSlug, day])
+  @@map("package_views")
 }

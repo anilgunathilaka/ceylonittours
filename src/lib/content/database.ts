@@ -45,6 +45,7 @@ export const getDatabasePackages = unstable_cache(
     const rows = await prisma.tourPackage.findMany({ where: published, orderBy: { createdAt: "asc" } });
     return rows.map((p) => ({
       slug: p.slug,
+      productNumber: p.productNumber,
       title: p.title,
       tourType: p.tourType ?? undefined,
       location: p.location ?? undefined,
@@ -78,6 +79,32 @@ export const getDatabasePackages = unstable_cache(
       reviewBreakdown: asArray<NonNullable<TourPackage["reviewBreakdown"]>[number]>(p.reviewBreakdown),
       aiReviewSummary: p.aiReviewSummary ?? undefined,
       reviewHighlights: asArray<NonNullable<TourPackage["reviewHighlights"]>[number]>(p.reviewHighlights),
+      gallery: asArray<{ url?: string; alt?: string; width?: number; height?: number }>(p.gallery)
+        .filter((g) => g.url)
+        .map((g) => image(g.url!, g.alt ?? "", g.width, g.height)),
+      meetingPoint: p.meetingType
+        ? {
+            type: p.meetingType as NonNullable<TourPackage["meetingPoint"]>["type"],
+            name: p.meetingPointName ?? undefined,
+            address: p.meetingPointAddress ?? undefined,
+            lat: p.meetingLat ?? undefined,
+            lng: p.meetingLng ?? undefined,
+            instructions: p.meetingInstructions ?? undefined,
+            pickupAreas: p.pickupAreas,
+          }
+        : undefined,
+      cancellationPolicy: (p.cancellationPolicy ?? undefined) as TourPackage["cancellationPolicy"],
+      cancellationNotes: p.cancellationNotes ?? undefined,
+      keywords: p.keywords,
+      foodIncluded: (p.foodIncluded ?? undefined) as TourPackage["foodIncluded"],
+      foodDetails: p.foodDetails,
+      transportTypes: p.transportTypes,
+      guideType: (p.guideType ?? undefined) as TourPackage["guideType"],
+      petFriendly: p.petFriendly,
+      petPolicy: p.petPolicy ?? undefined,
+      bookingQuestions: asArray<{ question?: string; required?: boolean }>(p.bookingQuestions)
+        .filter((q) => q.question)
+        .map((q) => ({ question: q.question!, required: q.required === true })),
     }));
   },
   ["cms-tour-packages"],

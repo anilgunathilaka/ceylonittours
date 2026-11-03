@@ -94,3 +94,11 @@ function sniffImageType(bytes: Uint8Array): keyof typeof ALLOWED_TYPES | null {
   if (ascii(4, "ftyp") && (ascii(8, "avif") || ascii(8, "avis"))) return "image/avif";
   return null;
 }
+
+/** True for a photo a customer uploaded with their review (our bucket, reviews/ folder) */
+export function isReviewPhotoUrl(value: string) {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  if (!base) return false;
+  const prefix = `${base}/storage/v1/object/public/${BUCKET}/reviews/`;
+  return value.startsWith(prefix) && /^[a-f0-9-]+\.(jpg|png|webp|avif)$/.test(value.slice(prefix.length));
+}
