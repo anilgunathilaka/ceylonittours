@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPackageBySlug } from "@/lib/content";
-import { getActiveOffers, getAvailability, getOptionsForPackage } from "@/lib/products/options";
+import { getAvailability, getOffersForPackage, getOptionsForPackage } from "@/lib/products/options";
 import { addDays, DATE_PATTERN, sriLankaToday } from "@/lib/products/slots";
 import { packageSlugSchema } from "@/lib/validation/schemas";
 
@@ -26,8 +26,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tour not found" }, { status: 404 });
   }
 
-  const [options, allOffers] = await Promise.all([getOptionsForPackage(slug.data, { activeOnly: true }), getActiveOffers()]);
-  const offers = allOffers.filter((o) => o.packageSlugs.length === 0 || o.packageSlugs.includes(slug.data));
+  const [options, offers] = await Promise.all([getOptionsForPackage(slug.data, { activeOnly: true }), getOffersForPackage(slug.data)]);
   // Past dates never have bookable slots
   const start = from < today ? today : from;
   const slots = start <= to ? await getAvailability(options, start, to) : new Map();

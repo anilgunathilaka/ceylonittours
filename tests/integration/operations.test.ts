@@ -79,6 +79,23 @@ describe("instant confirmation, pickup and offers", () => {
   });
 });
 
+describe("tour discount on bookings", () => {
+  it("applies the tour's own discount when it beats the special offers", async () => {
+    const user = await makeUser("guest@example.test");
+    authMock.mockResolvedValue(fakeSession(user));
+    const o = await option();
+    await prisma.tourPackage.create({
+      data: { slug: SLUG, title: "Ella", category: "Day Trips", summary: "S", imageUrl: "https://x/a.webp", price: 50, status: "PUBLISHED", discountType: "amount", discountValue: 15 },
+    });
+    await prisma.specialOffer.create({ data: { name: "Book early", type: "early_bird", discountPercent: 10, days: 30 } });
+
+    expect((await request(o.id)).status).toBe(200);
+    const saved = await prisma.booking.findFirstOrThrow();
+    // 2 adults × (50 − 15) = 70, better than 10% off (90)
+    expect(saved).toMatchObject({ totalPrice: 70, offerName: "Special price", discountPercent: 30 });
+  });
+});
+
 describe("admin operations", () => {
   it("sets pickup times and tells the customer", async () => {
     const guest = await makeUser("guest@example.test");

@@ -1,33 +1,41 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import Image from "next/image";
-import { Accessibility, BadgePercent, Bus, Car, Check, Clock, ExternalLink, Globe, MapPin, PawPrint, ShieldCheck, ThumbsUp, Users, UtensilsCrossed, Wallet, X } from "lucide-react";
+import { Accessibility, BadgePercent, ChevronRight, Flame, MessageCircle, Bus, Car, Check, Clock, ExternalLink, Globe, MapPin, PawPrint, ShieldCheck, ThumbsUp, Users, UtensilsCrossed, Wallet, X } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
-import { BookAvailabilityButton } from "@/components/tour-packages/BookAvailabilityButton";
-import { BookingBox, BookingProvider, BookingResults } from "@/components/tour-packages/BookingFlow";
+import { BookingBox, BookingProvider, BookingResults, EnquiryBox } from "@/components/tour-packages/BookingFlow";
 import { Itinerary } from "@/components/tour-packages/Itinerary";
 import { PackageGallery } from "@/components/tour-packages/PackageGallery";
 import { RelatedCarousel } from "@/components/tour-packages/RelatedCarousel";
 import { ReviewAvatar, ReviewsList } from "@/components/tour-packages/ReviewsList";
 import { SeeMore } from "@/components/tour-packages/SeeMore";
 import { ShareButton } from "@/components/tour-packages/ShareButton";
+import { SectionNav } from "@/components/tour-packages/SectionNav";
 import { ViewTracker } from "@/components/tour-packages/ViewTracker";
 import { WishlistButton } from "@/components/tour-packages/WishlistButton";
 import { CANCELLATION_POLICY_LABELS, FOOD_LABELS, GUIDE_TYPE_LABELS } from "@/lib/cms/config";
 import { formatDisplayDate } from "@/lib/date";
 import type { getApprovedReviews } from "@/lib/reviews";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+
+/** WhatsApp number for customer questions (same as the contact page), digits only */
+const WHATSAPP_NUMBER = "94112345678";
 import type { TourPackage } from "@/types";
 
 export type PackageBooking = {
   /** Package has bookable options: show the booking box instead of the enquiry button */
   bookable: boolean;
   fromPrice?: { amount: number; unit: "person" | "group" };
+  /** Price before the tour discount, shown crossed out */
+  compareAt?: number;
   /** Biggest special offer for this tour, shown in the booking box */
   offer?: { name: string; discountPercent: number };
   /** Any bookable option is wheelchair accessible */
   wheelchairAccessible?: boolean;
+  /** Real bookings made in the last 30 days (shown when there are a few) */
+  recentBookings?: number;
 };
 
 export type PackageReviews = Awaited<ReturnType<typeof getApprovedReviews>>;
@@ -69,6 +77,31 @@ export function PackageDetail({
   const meeting = pkg.meetingPoint;
   const hasMap = meeting?.lat !== undefined && meeting?.lng !== undefined;
   const payOnArrival = pkg.payLater || booking.bookable;
+  // Crossed-out price: before the tour discount (bookable tours), or the tour's original price
+  const wasCandidate = booking.bookable ? Math.max(booking.compareAt ?? 0, pkg.originalPrice ?? 0) : (pkg.originalPrice ?? 0);
+  const wasPrice = wasCandidate > fromPrice.amount ? wasCandidate : undefined;
+  const savePercent = wasPrice ? Math.round((1 - fromPrice.amount / wasPrice) * 100) : 0;
+  const popular = (booking.recentBookings ?? 0) >= 3;
+  const hasInfo =
+    (pkg.whatToBring?.length ?? 0) > 0 ||
+    (pkg.notAllowed?.length ?? 0) > 0 ||
+    (pkg.knowBeforeYouGo?.length ?? 0) > 0 ||
+    (pkg.guideCertifications?.length ?? 0) > 0 ||
+    Boolean(pkg.petFriendly || pkg.petPolicy);
+  // Option cards: "Driver: English", "Cancel for free until …"
+  const guideLabel = pkg.guideType === "driver_guide" ? "Driver" : pkg.guideType === "audio_guide" ? "Audio guide" : pkg.guideType === "live_guide" || !pkg.guideType ? "Guide" : undefined;
+  const freeCancelHours = pkg.cancellationPolicy
+    ? ({ free_24h: 24, free_48h: 48, free_7d: 168 } as Record<string, number>)[pkg.cancellationPolicy]
+    : pkg.freeCancellation
+      ? 24
+      : undefined;
+  const results = (className: string) =>
+    booking.bookable && (
+      <div data-booking-results className={cn("scroll-mt-36 [&:not(:has(*))]:hidden", className)}>
+        <BookingResults questions={pkg.bookingQuestions ?? []} guideLabel={guideLabel} freeCancelHours={freeCancelHours} />
+      </div>
+    );
+  const showReviews = rating !== undefined || hasVerified || (pkg.reviewHighlights?.length ?? 0) > 0;
 
   const sidebar = (
     // Not <Card>: its overflow-hidden would clip the date and participant pop-ups
@@ -78,16 +111,22 @@ export function PackageDetail({
           <BadgePercent size={17} className="shrink-0" /> {booking.offer.name} · save up to {booking.offer.discountPercent}%
         </p>
       )}
-      <p className="text-sm text-slate">From</p>
-      <div className="flex items-baseline gap-2">
-        {pkg.originalPrice && pkg.originalPrice > fromPrice.amount && (
-          <span className="text-base text-slate line-through">{formatCurrency(pkg.originalPrice)}</span>
-        )}
-        <span className="font-display text-3xl font-semibold text-accent">{formatCurrency(fromPrice.amount)}</span>
-      </div>
-      <p className="mb-5 text-sm text-slate">per {fromPrice.unit}</p>
+      <p className="text-[15px] text-midnight">
+        From {wasPrice && <span className="ml-1 font-semibold text-slate line-through">{formatCurrency(wasPrice)}</span>}
+      </p>
+      <p className="mb-5 flex flex-wrap items-baseline gap-x-2 text-midnight">
+        <span className={cn("text-2xl font-bold", wasPrice ? "text-accent" : "text-midnight")}>{formatCurrency(fromPrice.amount)}</span>
+        <span className="text-[15px]">per {fromPrice.unit}</span>
+        {savePercent > 0 && <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent-dark">Save {savePercent}%</span>}
+      </p>
 
-      {booking.bookable ? <BookingBox /> : <BookAvailabilityButton packageSlug={pkg.slug} packageTitle={pkg.title} />}
+      {popular && (
+        <p className="mb-4 flex items-center gap-2 text-sm font-semibold text-accent-dark">
+          <Flame size={16} className="shrink-0" /> Booked {booking.recentBookings} times in the last 30 days
+        </p>
+      )}
+
+      {booking.bookable ? <BookingBox /> : <EnquiryBox packageSlug={pkg.slug} packageTitle={pkg.title} languages={pkg.languages ?? []} />}
 
       <div className="mt-6 space-y-4 border-t border-border pt-6 text-sm">
         {freeCancellation && (
@@ -117,14 +156,62 @@ export function PackageDetail({
             </div>
           </div>
         )}
+        <a
+          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi! I have a question about "${pkg.title}"`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-start gap-2 rounded-xl bg-nature/10 px-3 py-2.5 text-midnight transition-colors hover:bg-nature/15"
+        >
+          <MessageCircle size={18} className="mt-0.5 shrink-0 text-nature" />
+          <span>
+            <span className="block font-semibold">Questions? Chat with us</span>
+            <span className="text-slate">Local team on WhatsApp — we usually reply within the hour</span>
+          </span>
+        </a>
       </div>
     </div>
   );
 
+  // In-page links for the sections this tour actually has
+  const sectionLinks = [
+    { id: "overview", label: "Overview" },
+    ...(pkg.itinerary?.length ? [{ id: "itinerary", label: "Itinerary" }] : []),
+    ...((pkg.includes?.length ?? 0) > 0 || (pkg.excludes?.length ?? 0) > 0 ? [{ id: "includes", label: "What's included" }] : []),
+    ...(meeting ? [{ id: "meeting", label: meeting.type === "pickup" ? "Pickup" : "Meeting point" }] : []),
+    ...(hasInfo ? [{ id: "info", label: "Important information" }] : []),
+    ...(showReviews ? [{ id: "reviews", label: "Reviews" }] : []),
+  ];
+
   const page = (
-    <div className="bg-ivory py-12 lg:py-16">
+    <div className="bg-ivory pt-6 pb-28 lg:pt-8 lg:pb-16">
       <ViewTracker slug={pkg.slug} />
       <Container>
+        <nav aria-label="Breadcrumb" className="mb-4 text-xs text-slate">
+          <ol className="flex flex-wrap items-center gap-1">
+            <li>
+              <Link href="/" className="hover:text-midnight hover:underline">
+                Home
+              </Link>
+            </li>
+            <ChevronRight size={13} aria-hidden />
+            <li>
+              <Link href="/tour-packages" className="hover:text-midnight hover:underline">
+                Tours
+              </Link>
+            </li>
+            <ChevronRight size={13} aria-hidden />
+            <li>
+              <Link href={`/tour-packages?category=${encodeURIComponent(pkg.category.toLowerCase().replace(/\s+/g, "-"))}`} className="hover:text-midnight hover:underline">
+                {pkg.category}
+              </Link>
+            </li>
+            <ChevronRight size={13} aria-hidden />
+            <li aria-current="page" className="truncate font-medium text-midnight">
+              {pkg.title}
+            </li>
+          </ol>
+        </nav>
+
         {/* Title row */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -141,6 +228,11 @@ export function PackageDetail({
                   Activity provider: <span className="font-semibold text-midnight">{pkg.provider}</span>
                 </span>
               )}
+              {popular && (
+                <span className="flex items-center gap-1 font-semibold text-accent-dark">
+                  <Flame size={14} /> Popular: booked {booking.recentBookings} times this month
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-5 pt-1">
@@ -149,8 +241,10 @@ export function PackageDetail({
           </div>
         </div>
 
+        <SectionNav sections={sectionLinks} />
+
         <div className="mt-2 grid grid-cols-1 gap-10 lg:grid-cols-[1.7fr_1fr]">
-          <div className="min-w-0">
+          <div id="overview" className="min-w-0 scroll-mt-32">
             {pkg.gallery && pkg.gallery.length > 0 ? (
               <PackageGallery images={[pkg.image, ...pkg.gallery]} />
             ) : (
@@ -158,6 +252,8 @@ export function PackageDetail({
                 <Image src={pkg.image.url} alt={pkg.image.alt} fill sizes="(min-width: 1024px) 60vw, 100vw" className="object-cover" priority />
               </div>
             )}
+
+            {results("mt-8 hidden lg:block")}
 
             <p className="mt-6 text-base text-slate">{pkg.description ?? pkg.summary}</p>
 
@@ -197,18 +293,14 @@ export function PackageDetail({
             </div>
 
             {/* Mobile: the booking box sits here; on desktop it is in the sidebar */}
-            <div className="mt-8 lg:hidden">{sidebar}</div>
+            <div id="booking-box" className="mt-8 scroll-mt-32 lg:hidden">
+              {sidebar}
+            </div>
 
-            {booking.bookable && (
-              <div id="book" className="scroll-mt-28 empty:hidden">
-                <div className="mt-8 rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border sm:p-7 [&:not(:has(*))]:hidden">
-                  <BookingResults questions={pkg.bookingQuestions ?? []} />
-                </div>
-              </div>
-            )}
+            {results("mt-8 lg:hidden")}
 
             {verified.highlights.length > 0 && (
-              <Section title="What travelers loved">
+              <Section title="What travelers loved" layout="top">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {verified.highlights.slice(0, 2).map((r) => (
                     <div key={r.id} className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
@@ -234,7 +326,7 @@ export function PackageDetail({
             )}
 
             {pkg.itinerary && pkg.itinerary.length > 0 && (
-              <Section title="Itinerary">
+              <Section id="itinerary" title="Itinerary" layout="top">
                 <Itinerary stops={pkg.itinerary} />
                 <p className="mt-4 text-xs text-slate">For reference only. Itineraries are subject to change.</p>
               </Section>
@@ -259,7 +351,7 @@ export function PackageDetail({
             )}
 
             {((pkg.includes?.length ?? 0) > 0 || (pkg.excludes?.length ?? 0) > 0) && (
-              <Section title="Includes">
+              <Section id="includes" title="Includes">
                 <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
                   {pkg.includes?.map((item) => (
                     <div key={item} className="flex items-start gap-2 text-slate">
@@ -278,7 +370,7 @@ export function PackageDetail({
             )}
 
             {meeting && (
-              <Section title={meeting.type === "pickup" ? "Pickup" : "Meeting point"}>
+              <Section id="meeting" title={meeting.type === "pickup" ? "Pickup" : "Meeting point"} layout="top">
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                   <div className="flex flex-col gap-3 text-slate">
                     {(meeting.name || meeting.address) && (
@@ -334,13 +426,14 @@ export function PackageDetail({
               </Section>
             )}
 
-            {((pkg.whatToBring?.length ?? 0) > 0 || (pkg.notAllowed?.length ?? 0) > 0 || (pkg.knowBeforeYouGo?.length ?? 0) > 0 || pkg.petFriendly || pkg.petPolicy) && (
-              <Section title="Important information">
+            {((pkg.whatToBring?.length ?? 0) > 0 || (pkg.notAllowed?.length ?? 0) > 0 || (pkg.knowBeforeYouGo?.length ?? 0) > 0 || (pkg.guideCertifications?.length ?? 0) > 0 || pkg.petFriendly || pkg.petPolicy) && (
+              <Section id="info" title="Important information">
                 <SeeMore collapsedHeight={260}>
                   <div className="space-y-6">
                     <InfoList title="What to bring" items={pkg.whatToBring} />
                     <InfoList title="Not allowed" items={pkg.notAllowed} />
                     <InfoList title="Know before you go" items={pkg.knowBeforeYouGo} />
+                    <InfoList title="Your guide" items={pkg.guideCertifications} />
                     {(pkg.petFriendly || pkg.petPolicy) && (
                       <div>
                         <p className="mb-2 flex items-center gap-1.5 font-semibold text-midnight">
@@ -371,7 +464,7 @@ export function PackageDetail({
           </div>
 
           {/* Booking panel (desktop) */}
-          <div className="hidden lg:sticky lg:top-28 lg:block lg:self-start">{sidebar}</div>
+          <div className="hidden lg:sticky lg:top-32 lg:block lg:self-start">{sidebar}</div>
         </div>
 
         {related.length > 0 && (
@@ -381,7 +474,7 @@ export function PackageDetail({
           </div>
         )}
 
-        {(rating !== undefined || hasVerified || (pkg.reviewHighlights?.length ?? 0) > 0) && (
+        {showReviews && (
           <section id="reviews" className="mt-16 scroll-mt-28 lg:max-w-[calc((100%-2.5rem)*1.7/2.7)]">
             <h2 className="font-display text-2xl font-semibold text-midnight">Customer reviews</h2>
             <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
@@ -474,6 +567,19 @@ export function PackageDetail({
           </p>
         )}
       </Container>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-border bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+        <div className="leading-tight">
+          <p className="text-xs text-slate">From</p>
+          <p className="text-lg font-semibold text-accent">
+            {wasPrice && <span className="mr-1.5 text-sm font-normal text-slate line-through">{formatCurrency(wasPrice)}</span>}
+            {formatCurrency(fromPrice.amount)} <span className="text-xs font-normal text-slate">/ {fromPrice.unit}</span>
+          </p>
+        </div>
+        <a href="#booking-box" className="inline-flex h-11 items-center rounded-full bg-accent px-5 text-sm font-semibold text-white shadow-card hover:bg-accent-dark">
+          Check availability
+        </a>
+      </div>
     </div>
   );
 
@@ -506,11 +612,15 @@ function QuickFact({ icon, label, detail }: { icon: ReactNode; label: string; de
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * A tour page section. "side" (default) puts the heading in a left column on wider screens, like
+ * GetYourGuide; "top" keeps it above, for wide content such as the itinerary map.
+ */
+function Section({ id, title, layout = "side", children }: { id?: string; title: string; layout?: "side" | "top"; children: ReactNode }) {
   return (
-    <div className="mt-8 border-t border-border pt-8">
-      <h2 className="mb-4 font-display text-xl font-semibold text-midnight">{title}</h2>
-      {children}
-    </div>
+    <section id={id} className={cn("mt-8 scroll-mt-32 border-t border-border pt-8", layout === "side" && "md:grid md:grid-cols-[180px_minmax(0,1fr)] md:gap-8")}>
+      <h2 className={cn("font-display text-xl font-semibold text-midnight", layout === "side" ? "mb-4 md:mb-0" : "mb-4")}>{title}</h2>
+      <div className="min-w-0">{children}</div>
+    </section>
   );
 }

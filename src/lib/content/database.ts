@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { applyDiscount, type TourDiscount } from "@/lib/products/pricing";
 import { prisma } from "@/lib/db";
 import type { BlogPost, Destination, Experience, SanityImage, Testimonial, TourCategory, TourPackage } from "@/types";
 
@@ -16,6 +17,14 @@ const published = { status: "PUBLISHED" } as const;
 
 function image(url: string | null, alt: string, width?: number | null, height?: number | null): SanityImage {
   return { url: url ?? "", alt, width: width ?? 1600, height: height ?? 1067 };
+}
+
+/** Shown price and crossed-out price, after the tour's own discount */
+function discountedPrice(price: number, originalPrice: number | null, type: string | null, value: number | null) {
+  const discount: TourDiscount | undefined = value && (type === "percent" || type === "amount") ? { type, value } : undefined;
+  const now = applyDiscount(price, discount);
+  const was = Math.max(originalPrice ?? 0, now < price ? price : 0);
+  return { price: now, originalPrice: was > now ? was : undefined };
 }
 
 const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
@@ -55,8 +64,7 @@ export const getDatabasePackages = unstable_cache(
       durationDays: p.durationDays ?? undefined,
       durationNights: p.durationNights ?? undefined,
       durationLabel: p.durationLabel ?? undefined,
-      price: p.price,
-      originalPrice: p.originalPrice ?? undefined,
+      ...discountedPrice(p.price, p.originalPrice, p.discountType, p.discountValue),
       rating: p.rating ?? undefined,
       reviewCount: p.reviewCount ?? undefined,
       groupSize: p.groupSize,
@@ -102,6 +110,7 @@ export const getDatabasePackages = unstable_cache(
       guideType: (p.guideType ?? undefined) as TourPackage["guideType"],
       petFriendly: p.petFriendly,
       petPolicy: p.petPolicy ?? undefined,
+      guideCertifications: p.guideCertifications,
       bookingQuestions: asArray<{ question?: string; required?: boolean }>(p.bookingQuestions)
         .filter((q) => q.question)
         .map((q) => ({ question: q.question!, required: q.required === true })),

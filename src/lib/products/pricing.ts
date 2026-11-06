@@ -38,6 +38,8 @@ export type Offer = {
   name: string;
   type: "early_bird" | "last_minute" | "dates";
   discountPercent: number;
+  /** Fixed USD off each guest's price (per person) or off the group price; used instead of discountPercent when set */
+  discountAmount?: number | null;
   /** Empty = every tour */
   packageSlugs: string[];
   days?: number | null;
@@ -58,9 +60,45 @@ export function offerApplies(offer: Offer, packageSlug: string, date: string, to
   return true;
 }
 
-/** The biggest discount that applies (offers never stack) */
-export function bestOffer(offers: Offer[], packageSlug: string, date: string, today: string) {
-  return offers.filter((o) => offerApplies(o, packageSlug, date, today)).sort((a, b) => b.discountPercent - a.discountPercent)[0];
+/** A tour's own discount, as entered in the tour editor */
+export type TourDiscount = { type: "percent" | "amount"; value: number };
+
+/** Price after a tour discount (never below zero; percent capped at 90%) */
+export function applyDiscount(price: number, discount?: TourDiscount | null) {
+  if (!discount || discount.value <= 0) return price;
+  if (discount.type === "percent") return round(price * (1 - Math.min(discount.value, 90) / 100));
+  return round(Math.max(price - discount.value, 0));
+}
+
+/** The tour discount as an always-on offer for that tour, so it competes with special offers */
+export function tourDiscountOffer(packageSlug: string, discount?: TourDiscount | null): Offer | undefined {
+  if (!discount || discount.value <= 0) return undefined;
+  return {
+    name: "Special price",
+    type: "dates",
+    packageSlugs: [packageSlug],
+    discountPercent: discount.type === "percent" ? Math.min(discount.value, 90) : 0,
+    discountAmount: discount.type === "amount" ? discount.value : null,
+  };
+}
+
+/** Prices with every applicable offer and keeps the cheapest — offers never stack. */
+export function quoteWithBestOffer(
+  option: PricedOption,
+  counts: Record<string, number>,
+  date: string,
+  offers: Offer[],
+  packageSlug: string,
+  today: string,
+): Quote {
+  let best = quote(option, counts, date);
+  if (!best.ok) return best;
+  for (const offer of offers) {
+    if (!offerApplies(offer, packageSlug, date, today)) continue;
+    const candidate = quote(option, counts, date, offer);
+    if (candidate.ok && candidate.total < best.total) best = candidate;
+  }
+  return best;
 }
 
 export type QuoteLine = { category: string; label: string; count: number; unitPrice: number };
@@ -73,6 +111,7 @@ export type Quote =
       adjustPercent: number;
       /** Total before the special offer (equals total without one) */
       fullTotal: number;
+      /** The offer applied; discountPercent is the effective saving (also for amount discounts) */
       offer?: { name: string; discountPercent: number };
     }
   | { ok: false; error: string };
@@ -80,11 +119,18 @@ export type Quote =
 /** Prices a booking: `counts` maps a guest category to how many guests are in it. */
 export function quote(option: PricedOption, counts: Record<string, number>, date?: string, offer?: Offer): Quote {
   const base = quoteBeforeOffer(option, counts, date);
-  if (!base.ok || !offer || offer.discountPercent <= 0) return base;
-  const factor = 1 - Math.min(offer.discountPercent, 90) / 100;
-  const lines = base.lines.map((line) => ({ ...line, unitPrice: round(line.unitPrice * factor) }));
-  const total = option.pricingMode === "per_group" ? round(base.total * factor) : round(lines.reduce((sum, l) => sum + l.unitPrice * l.count, 0));
-  return { ...base, lines, total, offer: { name: offer.name, discountPercent: offer.discountPercent } };
+  if (!base.ok || !offer) return base;
+  const amount = offer.discountAmount && offer.discountAmount > 0 ? offer.discountAmount : 0;
+  if (amount === 0 && offer.discountPercent <= 0) return base;
+
+  // Percent: off every price. Amount: off each guest's price, or off the group price.
+  const cut = (price: number) => (amount ? round(Math.max(price - amount, 0)) : round(price * (1 - Math.min(offer.discountPercent, 90) / 100)));
+  const perGroup = option.pricingMode === "per_group";
+  const lines = perGroup ? base.lines : base.lines.map((line) => ({ ...line, unitPrice: cut(line.unitPrice) }));
+  const total = perGroup ? cut(base.total) : round(lines.reduce((sum, l) => sum + l.unitPrice * l.count, 0));
+  if (total >= base.total) return base;
+  const savedPercent = base.total > 0 ? Math.round(((base.total - total) / base.total) * 100) : 0;
+  return { ...base, lines, total, offer: { name: offer.name, discountPercent: amount ? savedPercent : offer.discountPercent } };
 }
 
 function quoteBeforeOffer(option: PricedOption, counts: Record<string, number>, date?: string): Quote {

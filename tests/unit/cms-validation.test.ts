@@ -18,6 +18,7 @@ const validPackage = {
   category: "Day Trips",
   imageUrl: "https://example.supabase.co/storage/v1/object/public/site-media/tour-packages/a.webp",
   imageAlt: "Tea country",
+  photoRightsConfirmed: "on",
   imageWidth: "1600",
   imageHeight: "1067",
   summary: "A scenic drive.",
@@ -137,5 +138,22 @@ describe("slugify", () => {
   it("makes URL-safe slugs", () => {
     expect(slugify("  From Kandy: Ella Drop Tour!  ")).toBe("from-kandy-ella-drop-tour");
     expect(slugify("Café Négombo")).toBe("cafe-negombo");
+  });
+});
+
+describe("tour wizard rules", () => {
+  it("requires the photo copyright confirmation", () => {
+    const unticked: Record<string, string | string[]> = { ...validPackage };
+    delete unticked.photoRightsConfirmed;
+    const result = parseContentForm("tour-packages", form(unticked));
+    expect(result.ok ? {} : result.errors).toMatchObject({ photoRightsConfirmed: expect.stringMatching(/tick/) });
+    expect(parseContentForm("tour-packages", form(validPackage)).ok).toBe(true);
+  });
+
+  it("saves guide certifications and keeps the keyword limit", () => {
+    const ok = parseContentForm("tour-packages", form({ ...validPackage, guideCertifications: "SLTDA licensed guide\nFirst Aid" }));
+    expect(ok.ok && ok.data.guideCertifications).toEqual(["SLTDA licensed guide", "First Aid"]);
+    const tooMany = parseContentForm("tour-packages", form({ ...validPackage, keywords: Array.from({ length: 16 }, (_, i) => `k${i}`).join("\n") }));
+    expect(tooMany.ok ? {} : tooMany.errors).toHaveProperty("keywords");
   });
 });

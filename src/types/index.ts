@@ -115,6 +115,7 @@ export interface TourPackage {
   guideType?: "live_guide" | "driver_guide" | "no_guide" | "ticket_only" | "audio_guide";
   petFriendly?: boolean;
   petPolicy?: string;
+  guideCertifications?: string[];
 }
 
 export type CancellationPolicy = "free_24h" | "free_48h" | "free_7d" | "non_refundable" | "custom";

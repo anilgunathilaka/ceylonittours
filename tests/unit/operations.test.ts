@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { countryFromPhone } from "@/lib/phone-country";
-import { bestOffer, offerApplies, quote, type Offer, type PricedOption } from "@/lib/products/pricing";
+import { applyDiscount, offerApplies, quote, quoteWithBestOffer, tourDiscountOffer, type Offer, type PricedOption } from "@/lib/products/pricing";
+import { parseContentForm } from "@/lib/cms/validation";
 import { computeSlots, slotKey } from "@/lib/products/slots";
 import { optionFormSchema } from "@/lib/products/validation";
 
@@ -27,9 +28,8 @@ describe("special offers", () => {
   });
 
   it("uses the biggest matching discount, on top of the season price", () => {
-    const offer = bestOffer([early, lowSeason], "ella", "2027-05-10", "2026-11-05");
-    expect(offer?.name).toBe("Low season");
-    expect(quote(option, { adult: 2 }, "2027-05-10", offer)).toMatchObject({ ok: true, fullTotal: 200, total: 160, offer: { discountPercent: 20 } });
+    const best = quoteWithBestOffer(option, { adult: 2 }, "2027-05-10", [early, lowSeason], "ella", "2026-11-05");
+    expect(best).toMatchObject({ ok: true, fullTotal: 200, total: 160, offer: { name: "Low season", discountPercent: 20 } });
     // Peak +20% then early bird -10%: 100 × 1.2 × 0.9 = 108 each
     expect(quote(option, { adult: 1 }, "2026-12-25", early)).toMatchObject({ ok: true, fullTotal: 120, total: 108 });
     expect(quote(option, { adult: 1 }, "2026-11-10")).toMatchObject({ ok: true, total: 100, fullTotal: 100 });
@@ -103,5 +103,48 @@ describe("source markets", () => {
     expect(countryFromPhone("077 123 4567")).toBe("Sri Lanka");
     expect(countryFromPhone("+999 1")).toBeUndefined();
     expect(countryFromPhone(undefined)).toBeUndefined();
+  });
+});
+
+describe("tour discount", () => {
+  const group: PricedOption = { ...option, pricingMode: "per_group", prices: [], groupTiers: [{ minPeople: 1, maxPeople: 4, price: 120 }], seasons: [] };
+
+  it("takes a percentage or an amount off the shown price", () => {
+    expect(applyDiscount(100, { type: "percent", value: 15 })).toBe(85);
+    expect(applyDiscount(100, { type: "amount", value: 10 })).toBe(90);
+    expect(applyDiscount(100, { type: "amount", value: 500 })).toBe(0);
+    expect(applyDiscount(100, undefined)).toBe(100);
+  });
+
+  it("takes an amount off each guest, or off the group price", () => {
+    const tenOff = tourDiscountOffer("ella", { type: "amount", value: 10 })!;
+    expect(quote(option, { adult: 3 }, "2026-11-10", tenOff)).toMatchObject({ ok: true, fullTotal: 300, total: 270, offer: { name: "Special price", discountPercent: 10 } });
+    expect(quote({ ...group, minParticipants: 1 }, { participant: 3 }, "2026-11-10", tenOff)).toMatchObject({ ok: true, fullTotal: 120, total: 110 });
+  });
+
+  it("competes with special offers — the customer gets the bigger saving, never both", () => {
+    const tour = tourDiscountOffer("ella", { type: "percent", value: 15 })!;
+    // Early bird (10%) applies too, but 15% saves more
+    expect(quoteWithBestOffer(option, { adult: 1 }, "2026-12-10", [early, tour], "ella", "2026-11-05")).toMatchObject({ total: 85, offer: { name: "Special price" } });
+    // Low season (20%) beats the tour discount
+    expect(quoteWithBestOffer(option, { adult: 1 }, "2027-05-10", [lowSeason, tour], "ella", "2026-11-05")).toMatchObject({ total: 80, offer: { name: "Low season" } });
+    // Another tour's discount never applies
+    expect(quoteWithBestOffer(option, { adult: 1 }, "2026-11-10", [tour], "kandy", "2026-11-05")).toMatchObject({ total: 100 });
+  });
+
+  it("validates the discount in the tour editor", () => {
+    const base = { title: "T", slug: "t", category: "Culture", summary: "S", imageUrl: "https://x.supabase.co/a.webp", price: "50", photoRightsConfirmed: "on" };
+    const make = (extra: Record<string, string>) => {
+      const data = new FormData();
+      for (const [k, v] of Object.entries({ ...base, ...extra })) data.set(k, v);
+      return parseContentForm("tour-packages", data);
+    };
+    const ok = make({ discountType: "percent", discountValue: "15" });
+    expect(ok.ok && ok.data).toMatchObject({ discountType: "percent", discountValue: 15 });
+    expect(make({ discountType: "percent", discountValue: "95" }).ok).toBe(false);
+    expect(make({ discountType: "amount", discountValue: "50" }).ok).toBe(false); // not less than the price
+    expect(make({ discountValue: "10" }).ok).toBe(false); // no type
+    const none = make({});
+    expect(none.ok && none.data).toMatchObject({ discountType: null, discountValue: null });
   });
 });

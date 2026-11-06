@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, ExternalLink, Pencil, Plus, Users } from "lucide-react";
+import { AdminNotice } from "@/components/admin/AdminNotice";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -14,9 +15,21 @@ import { formatCurrency } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Product options", robots: { index: false, follow: false } };
 
-export default async function AdminProductPage({ params }: { params: Promise<{ slug: string }> }) {
+const NOTICES: Record<string, string> = {
+  published: "Tour saved and published.",
+  saved: "Tour saved as draft — it is not visible on the website yet.",
+};
+
+export default async function AdminProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ notice?: string }>;
+}) {
   if (!(await getAdminSession())) notFound();
   const { slug } = await params;
+  const { notice } = await searchParams;
   const pkg = await getAdminPackage(slug);
   if (!pkg) notFound();
 
@@ -29,7 +42,7 @@ export default async function AdminProductPage({ params }: { params: Promise<{ s
   return (
     <AdminShell
       title={pkg.title}
-      back={{ href: "/admin/products", label: "Products" }}
+      back={{ href: "/admin/products", label: "Tours & options" }}
       description="Each option is a version of this tour customers can book — e.g. shared or private, with or without pickup — with its own prices, start times and capacity."
       actions={
         <div className="flex flex-wrap gap-2">
@@ -49,6 +62,10 @@ export default async function AdminProductPage({ params }: { params: Promise<{ s
         </div>
       }
     >
+      {notice && NOTICES[notice] && (
+        <AdminNotice message={`${NOTICES[notice]}${options.length === 0 ? " Next: add an option with prices and a schedule so customers can book it." : ""}`} />
+      )}
+
       {options.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-border bg-surface px-6 py-14 text-center">
           <p className="font-semibold text-midnight">No bookable options yet</p>

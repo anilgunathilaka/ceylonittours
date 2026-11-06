@@ -17,6 +17,9 @@ export function ContactForm() {
   const packageSlug = searchParams.get("package");
   const packageTitle = searchParams.get("title");
   const travelDate = searchParams.get("date");
+  // Filled in by the booking panel on the tour page
+  const guests = searchParams.get("guests")?.slice(0, 100);
+  const language = searchParams.get("language")?.slice(0, 40);
 
   const {
     register,
@@ -35,12 +38,19 @@ export function ContactForm() {
     if (packageTitle) {
       setValue(
         "message",
-        travelDate
-          ? `I'd like to book "${packageTitle}" on ${travelDate}. Please confirm availability and a quote.`
-          : `I'd like to check availability for "${packageTitle}". Please share available dates and a quote.`,
+        [
+          travelDate
+            ? `I'd like to book "${packageTitle}" on ${travelDate}.`
+            : `I'd like to check availability for "${packageTitle}".`,
+          guests && `Guests: ${guests}.`,
+          language && `Guide language: ${language}.`,
+          travelDate ? "Please confirm availability and a quote." : "Please share available dates and a quote.",
+        ]
+          .filter(Boolean)
+          .join(" "),
       );
     }
-  }, [packageTitle, travelDate, setValue]);
+  }, [packageTitle, travelDate, guests, language, setValue]);
 
   useEffect(() => {
     if (travelDate) setValue("travelDate", travelDate);

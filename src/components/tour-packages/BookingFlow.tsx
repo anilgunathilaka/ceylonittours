@@ -5,18 +5,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Accessibility,
-  BookOpen,
   Bus,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Globe,
   Loader2,
-  Lock,
   Minus,
   Plus,
   Users,
@@ -24,8 +21,8 @@ import {
   Zap,
 } from "lucide-react";
 import { formatDisplayDate } from "@/lib/date";
-import { bestOffer, guestCategories, quote, type GroupTier, type Offer, type PriceCategory, type PricingMode, type Season } from "@/lib/products/pricing";
-import { addDays, sriLankaToday } from "@/lib/products/slots";
+import { guestCategories, quoteWithBestOffer, type GroupTier, type Offer, type PriceCategory, type PricingMode, type Season } from "@/lib/products/pricing";
+import { addDays, slotStart, sriLankaToday } from "@/lib/products/slots";
 import { cn, formatCurrency } from "@/lib/utils";
 
 /**
@@ -64,6 +61,11 @@ type ApiOption = {
 };
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+/** Booking-panel pickers (participants, date, language) */
+const pickerClass =
+  "flex h-12 w-full items-center gap-3 rounded-full bg-midnight/[0.06] px-4 text-left text-[15px] font-medium text-midnight transition-colors hover:bg-midnight/[0.09] focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none";
+const checkButtonClass =
+  "h-12 w-full rounded-full bg-primary text-base font-semibold text-white shadow-card transition-colors hover:bg-primary-dark disabled:opacity-60";
 const inputClass =
   "w-full rounded-xl border border-border bg-surface px-3.5 text-sm text-midnight placeholder:text-slate/60 focus:border-secondary focus:outline-none";
 
@@ -165,10 +167,30 @@ function useBookingState(packageSlug: string) {
     [options, totalGuests, effectiveLanguage],
   );
 
+  // Month with no space for the group: look up the next date that has some
+  const nextKey = options && availableDates.size === 0 ? `${month}|${totalGuests}|${effectiveLanguage}` : null;
+  const [next, setNext] = useState<{ key: string; date: string | null } | null>(null);
+  useEffect(() => {
+    if (!nextKey) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ package: packageSlug, after: monthEnd(month), guests: String(totalGuests) });
+    if (effectiveLanguage) params.set("language", effectiveLanguage);
+    fetch(`/api/availability/next?${params}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((body: { date: string | null }) => !cancelled && setNext({ key: nextKey, date: body.date }))
+      .catch(() => !cancelled && setNext({ key: nextKey, date: null }));
+    return () => {
+      cancelled = true;
+    };
+  }, [nextKey, packageSlug, month, totalGuests, effectiveLanguage]);
+  /** undefined while looking, null when nothing is open in the next year */
+  const nextAvailable = !nextKey ? undefined : next?.key === nextKey ? next.date : undefined;
+  const nextLoading = !!nextKey && next?.key !== nextKey;
+
   const offers = data?.offers ?? [];
   /** Price for an option on the chosen date, with the best special offer applied */
   const priceOf = (option: ApiOption, guestCounts: Record<string, number>, onDate: string) =>
-    quote(option, countsFor(option, guestCounts), onDate, onDate ? bestOffer(offers, packageSlug, onDate, today) : undefined);
+    quoteWithBestOffer(option, countsFor(option, guestCounts), onDate, onDate ? offers : [], packageSlug, today);
 
   return {
     packageSlug,
@@ -198,6 +220,8 @@ function useBookingState(packageSlug: string) {
       setSelection(null);
     },
     availableDates,
+    nextAvailable,
+    nextLoading,
     checked,
     setChecked,
     selection,
@@ -244,11 +268,11 @@ function Popover({ label, icon, value, children }: { label: string; icon: ReactN
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-12 w-full items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-left text-sm font-semibold text-midnight transition-colors hover:border-primary/50"
+        className={pickerClass}
       >
-        <span className="text-slate">{icon}</span>
+        <span className="text-midnight">{icon}</span>
         <span className="flex-1 truncate">{value}</span>
-        <ChevronDown size={16} className={cn("text-slate transition-transform", open && "rotate-180")} />
+        <ChevronDown size={18} className={cn("text-midnight transition-transform", open && "rotate-180")} />
       </button>
       {open && <div className="absolute top-full right-0 left-0 z-30 mt-2 min-w-72 rounded-2xl bg-surface p-4 shadow-card-hover ring-1 ring-border">{children(() => setOpen(false))}</div>}
     </div>
@@ -270,7 +294,11 @@ export function BookingBox() {
     b.setChecked(true);
     b.setStep("select");
     // Bring the options into view
-    requestAnimationFrame(() => document.getElementById("book")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    requestAnimationFrame(() =>
+      Array.from(document.querySelectorAll<HTMLElement>("[data-booking-results]"))
+        .find((el) => el.offsetParent !== null)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
   }
 
   return (
@@ -320,6 +348,19 @@ export function BookingBox() {
               b.setDate(d);
               close();
             }}
+            empty={
+              b.options
+                ? {
+                    loading: b.nextLoading,
+                    next: b.nextAvailable,
+                    onNext: (d) => {
+                      b.setMonth(monthStart(d));
+                      b.setDate(d);
+                      close();
+                    },
+                  }
+                : undefined
+            }
           />
         )}
       </Popover>
@@ -327,11 +368,11 @@ export function BookingBox() {
       {b.languages.length > 0 && (
         <label className="relative">
           <span className="sr-only">Guide language</span>
-          <Globe size={17} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-slate" />
+          <Globe size={17} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-midnight" />
           <select
             value={b.language}
             onChange={(event) => b.setLanguage(event.target.value)}
-            className="h-12 w-full appearance-none rounded-full border border-border bg-surface pr-10 pl-11 text-sm font-semibold text-midnight hover:border-primary/50 focus:outline-none"
+            className={cn(pickerClass, "appearance-none pr-10 pl-11")}
           >
             {b.languages.map((l) => (
               <option key={l} value={l}>
@@ -339,7 +380,7 @@ export function BookingBox() {
               </option>
             ))}
           </select>
-          <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-slate" />
+          <ChevronDown size={18} className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-midnight" />
         </label>
       )}
 
@@ -352,19 +393,140 @@ export function BookingBox() {
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={check}
-        className="h-12 rounded-full bg-accent text-sm font-semibold text-white shadow-card transition-colors hover:bg-accent-dark"
-      >
+      <button type="button" onClick={check} className={checkButtonClass}>
         Check availability
       </button>
     </div>
   );
 }
 
+/**
+ * The same booking panel for tours without bookable options yet: participants, date and language,
+ * then "Check availability" sends a booking request (via the contact page) with those details filled in.
+ */
+export function EnquiryBox({ packageSlug, packageTitle, languages }: { packageSlug: string; packageTitle: string; languages: string[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { status } = useSession();
+  const today = sriLankaToday();
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+  const [date, setDate] = useState("");
+  const [month, setMonth] = useState(() => monthStart(today));
+  const [language, setLanguage] = useState(languages[0] ?? "");
+  const [error, setError] = useState(false);
+
+  // Any date from tomorrow; the team confirms availability
+  const available = useMemo(() => {
+    const days = new Set<string>();
+    for (let d = month; d <= monthEnd(month); d = addDays(d, 1)) if (d > today) days.add(d);
+    return days;
+  }, [month, today]);
+
+  const guests = [`${adults} adult${adults === 1 ? "" : "s"}`, children > 0 && `${children} child${children === 1 ? "" : "ren"}`].filter(Boolean).join(", ");
+
+  function check() {
+    if (!date) {
+      setError(true);
+      return;
+    }
+    const params = new URLSearchParams({ package: packageSlug, title: packageTitle, date, guests });
+    if (language) params.set("language", language);
+    const url = `/contact?${params}`;
+    // Booking requests need an account, like the rest of the booking flow
+    if (status === "authenticated") router.push(url);
+    else router.push(`/login?callbackUrl=${encodeURIComponent(url)}&from=${encodeURIComponent(pathname)}`);
+  }
+
+  const counter = (label: string, note: string, value: number, set: (n: number) => void, min: number) => (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="font-semibold text-midnight">{label}</p>
+        <p className="text-xs text-slate">{note}</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <Stepper label={`Fewer ${label}`} disabled={value <= min} onClick={() => set(Math.max(min, value - 1))}>
+          <Minus size={14} />
+        </Stepper>
+        <span className="w-5 text-center font-semibold text-midnight" aria-live="polite">
+          {value}
+        </span>
+        <Stepper label={`More ${label}`} onClick={() => set(Math.min(50, value + 1))}>
+          <Plus size={14} />
+        </Stepper>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Popover label="Participants" icon={<Users size={17} />} value={`Adult × ${adults}${children ? `, Child × ${children}` : ""}`}>
+        {(close) => (
+          <div className="flex flex-col gap-3">
+            {counter("Adult", "Age 12+", adults, setAdults, 1)}
+            {counter("Child", "Age 0–11", children, setChildren, 0)}
+            <button type="button" onClick={close} className="mt-1 h-10 rounded-full bg-primary text-sm font-semibold text-white hover:bg-primary-dark">
+              Done
+            </button>
+          </div>
+        )}
+      </Popover>
+
+      <Popover label="Date" icon={<CalendarDays size={17} />} value={date ? (formatDisplayDate(date) ?? date) : "Select date"}>
+        {(close) => (
+          <MonthCalendar
+            month={month}
+            today={today}
+            selected={date}
+            available={available}
+            loading={false}
+            onMonth={(delta) => setMonth(shiftMonth(month, delta))}
+            onSelect={(d) => {
+              setDate(d);
+              setError(false);
+              close();
+            }}
+          />
+        )}
+      </Popover>
+
+      {languages.length > 0 && (
+        <label className="relative">
+          <span className="sr-only">Guide language</span>
+          <Globe size={17} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-midnight" />
+          <select value={language} onChange={(event) => setLanguage(event.target.value)} className={cn(pickerClass, "appearance-none pr-10 pl-11")}>
+            {languages.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={18} className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-midnight" />
+        </label>
+      )}
+
+      {error && <p className="text-sm font-medium text-accent-dark">Select a date first.</p>}
+
+      <button type="button" onClick={check} disabled={status === "loading"} className={checkButtonClass}>
+        Check availability
+      </button>
+      <p className="text-center text-xs text-slate">We confirm availability and your quote within one business day.</p>
+    </div>
+  );
+}
+
 /** Options and times for the chosen participants/date/language, then details and confirmation. */
-export function BookingResults({ questions }: { questions: { question: string; required?: boolean }[] }) {
+export function BookingResults({
+  questions,
+  guideLabel,
+  freeCancelHours,
+}: {
+  questions: { question: string; required?: boolean }[];
+  /** e.g. "Driver", "Live tour guide" — shown with the option's languages */
+  guideLabel?: string;
+  /** Free cancellation up to this many hours before the start ("Cancel for free until …") */
+  freeCancelHours?: number;
+}) {
   const b = useBooking();
   const router = useRouter();
   const pathname = usePathname();
@@ -411,7 +573,7 @@ export function BookingResults({ questions }: { questions: { question: string; r
         step: "details",
         ...(b.language ? { language: b.language } : {}),
       });
-      const callbackUrl = `${pathname}?${next}#book`;
+      const callbackUrl = `${pathname}?${next}`;
       router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}&from=${encodeURIComponent(pathname)}`);
       return;
     }
@@ -423,142 +585,270 @@ export function BookingResults({ questions }: { questions: { question: string; r
   }
   if (!b.options) return <div className="h-40 animate-pulse rounded-2xl bg-midnight/5" />;
 
+  // Options running on this date in the chosen language, with a start time that fits the group
+  const openSlots = (option: ApiOption) =>
+    option.days.find((d) => d.date === b.date)?.slots.filter((s) => s.status === "available" && s.remaining >= b.totalGuests) ?? [];
   const forDate = b.options.filter((o) => speaks(o, b.language) && o.days.some((d) => d.date === b.date));
+  const available = forDate.filter((o) => openSlots(o).length > 0 && b.priceOf(o, b.counts, b.date).ok);
+  const unavailable = forDate.length - available.length;
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-slate">
-        {formatDisplayDate(b.date)} · {b.totalGuests} participant{b.totalGuests === 1 ? "" : "s"}
-        {b.language && ` · ${b.language}`}
-      </p>
-      {forDate.length === 0 && (
+      <div>
+        <h2 className="font-display text-xl font-semibold text-midnight">
+          {available.length > 0 ? `Choose from ${available.length} available option${available.length === 1 ? "" : "s"}` : "No options available"}
+        </h2>
+        <p className="text-sm text-slate">
+          {formatDisplayDate(b.date)} · {b.totalGuests} participant{b.totalGuests === 1 ? "" : "s"}
+          {b.language && ` · ${b.language}`}
+        </p>
+      </div>
+
+      {available.length === 0 && (
         <p className="rounded-xl bg-midnight/5 px-4 py-3 text-sm text-slate">
-          No departures on this date{b.language ? ` in ${b.language}` : ""} — pick a highlighted date in the booking box.
+          Nothing left for {b.totalGuests} participant{b.totalGuests === 1 ? "" : "s"} on this date{b.language ? ` in ${b.language}` : ""} — choose another date in the booking box.
         </p>
       )}
-      {forDate.map((option) => {
-        const day = option.days.find((d) => d.date === b.date)!;
-        const priced = b.priceOf(option, b.counts, b.date);
-        const selectedHere = b.selection?.optionId === option.id;
-        return (
-          <div key={option.id} className={cn("flex flex-col gap-4 rounded-2xl border p-5 transition-colors", selectedHere ? "border-primary bg-primary/[0.03]" : "border-border")}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-display text-lg font-semibold text-midnight">{option.title}</p>
-                {option.description && <p className="mt-1 text-sm text-slate">{option.description}</p>}
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate">
-                  {option.durationLabel && (
-                    <span className="flex items-center gap-1">
-                      <Clock size={13} /> {option.durationLabel}
-                    </span>
-                  )}
-                  {option.languages.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Globe size={13} /> {option.languages.join(", ")}
-                    </span>
-                  )}
-                  {option.pickupIncluded && (
-                    <span className="flex items-center gap-1">
-                      <Bus size={13} /> Pickup included
-                    </span>
-                  )}
-                  {option.isPrivate && (
-                    <span className="flex items-center gap-1">
-                      <Lock size={13} /> Private group
-                    </span>
-                  )}
-                  {option.wheelchairAccessible && (
-                    <span className="flex items-center gap-1">
-                      <Accessibility size={13} /> Wheelchair accessible
-                    </span>
-                  )}
-                  {option.skipTheLine && (
-                    <span className="flex items-center gap-1">
-                      <Zap size={13} /> Skip the line
-                    </span>
-                  )}
-                  {option.guideMaterials.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <BookOpen size={13} /> {option.guideMaterials.join(", ")}
-                    </span>
-                  )}
-                </div>
-                {option.instantConfirm && (
-                  <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-nature">
-                    <Zap size={13} /> Instant confirmation
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                {priced.ok ? (
-                  <>
-                    {priced.offer && (
-                      <p className="flex items-center justify-end gap-2 text-sm">
-                        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent-dark">Save {priced.offer.discountPercent}%</span>
-                        <span className="text-slate line-through">{formatCurrency(priced.fullTotal)}</span>
-                      </p>
-                    )}
-                    <p className="font-display text-2xl font-semibold text-accent">{formatCurrency(priced.total)}</p>
-                    {priced.offer && <p className="text-xs font-medium text-accent-dark">{priced.offer.name}</p>}
-                    <p className="text-xs text-slate">
-                      {b.totalGuests} participant{b.totalGuests === 1 ? "" : "s"} · taxes included
-                    </p>
-                  </>
-                ) : (
-                  <p className="max-w-48 text-sm font-medium text-accent-dark">{priced.error}</p>
-                )}
-              </div>
-            </div>
-            {priced.ok && (
-              <div className="flex flex-wrap gap-2">
-                {day.slots.map((slot) => {
-                  const open = slot.status === "available" && slot.remaining >= b.totalGuests;
-                  const chosen = selectedHere && b.selection?.time === slot.time;
-                  return (
-                    <button
-                      key={slot.time}
-                      type="button"
-                      disabled={!open}
-                      onClick={() => b.setSelection({ optionId: option.id, time: slot.time })}
-                      className={cn(
-                        "flex min-w-24 flex-col items-center rounded-xl px-4 py-2 text-sm font-semibold ring-1 transition-colors",
-                        chosen
-                          ? "bg-primary text-white ring-primary"
-                          : open
-                            ? "bg-surface text-midnight ring-border hover:ring-primary"
-                            : "cursor-not-allowed bg-midnight/5 text-slate/60 ring-transparent",
-                      )}
-                    >
-                      <span className={cn(!open && "line-through")}>{slot.time}</span>
-                      {open && slot.remaining <= 5 && <span className={cn("text-[11px] font-medium", chosen ? "text-white/80" : "text-accent-dark")}>{slot.remaining} left</span>}
-                      {!open && <span className="text-[11px] font-medium">{slot.status === "available" ? "Not enough spots" : slot.status === "full" ? "Sold out" : "Unavailable"}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-center gap-2 text-sm text-midnight">
-          <Wallet size={18} className="shrink-0 text-nature" />
-          <span>
-            <strong>Pay on arrival.</strong> Reserve now — nothing to pay online.
-          </span>
+      {available.length > 0 && (
+        <OptionCarousel>
+          {available.map((option) => (
+            <OptionCard
+              key={option.id}
+              option={option}
+              date={b.date}
+              slots={openSlots(option)}
+              quote={b.priceOf(option, b.counts, b.date)}
+              selectedTime={b.selection?.optionId === option.id ? b.selection.time : undefined}
+              guideLabel={guideLabel}
+              language={b.language}
+              freeCancelHours={freeCancelHours}
+              today={b.today}
+              onSelect={(time) => b.setSelection({ optionId: option.id, time })}
+              onContinue={continueToDetails}
+            />
+          ))}
+        </OptionCarousel>
+      )}
+
+      {unavailable > 0 && available.length > 0 && (
+        <p className="text-xs text-slate">
+          {unavailable} more option{unavailable === 1 ? " is" : "s are"} full or not available for {b.totalGuests} participants on this date.
         </p>
-        <button
-          type="button"
-          disabled={!b.selection || !selectedQuote?.ok || authStatus === "loading"}
-          onClick={continueToDetails}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-7 text-sm font-semibold text-white shadow-card transition-colors hover:bg-primary-dark disabled:opacity-50"
-        >
-          {b.selection && selectedQuote?.ok ? `Continue · ${formatCurrency(selectedQuote.total)}` : "Choose a time"}
-        </button>
-      </div>
+      )}
+
+      <p className="flex items-center gap-2 text-sm text-midnight">
+        <Wallet size={16} className="shrink-0 text-nature" />
+        <span>
+          <strong>Pay on arrival.</strong> Reserve now — nothing to pay online.
+        </span>
+      </p>
     </div>
   );
+}
+
+/** Horizontal row of option cards with arrow buttons (no visible scrollbar) */
+function OptionCarousel({ children }: { children: ReactNode }) {
+  const track = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+  useEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    const update = () => setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [children]);
+  const scroll = (direction: 1 | -1) => track.current?.scrollBy({ left: direction * track.current.clientWidth * 0.8, behavior: "smooth" });
+
+  return (
+    <div className="relative">
+      <div ref={track} className="-mx-1 flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto px-1 pt-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {children}
+      </div>
+      {!edges.start && (
+        <button type="button" aria-label="Previous options" onClick={() => scroll(-1)} className="absolute top-1/2 -left-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-midnight shadow-card-hover ring-1 ring-border">
+          <ChevronLeft size={20} />
+        </button>
+      )}
+      {!edges.end && (
+        <button type="button" aria-label="More options" onClick={() => scroll(1)} className="absolute top-1/2 -right-4 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-midnight shadow-card-hover ring-1 ring-border">
+          <ChevronRight size={20} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+const shortDate = (date: Date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Colombo" });
+const longDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** One bookable option for the chosen date: details, start time, price and Select / Continue */
+function OptionCard({
+  option,
+  date,
+  slots,
+  quote: priced,
+  selectedTime,
+  guideLabel,
+  language,
+  freeCancelHours,
+  today,
+  onSelect,
+  onContinue,
+}: {
+  option: ApiOption;
+  date: string;
+  slots: ApiSlot[];
+  quote: ReturnType<typeof quoteWithBestOffer>;
+  selectedTime?: string;
+  guideLabel?: string;
+  language: string;
+  freeCancelHours?: number;
+  today: string;
+  onSelect: (time: string) => void;
+  onContinue: () => void;
+}) {
+  const selected = selectedTime !== undefined;
+  const [time, setTime] = useState(selectedTime ?? slots[0]?.time ?? "");
+  const slot = slots.find((s) => s.time === time) ?? slots[0];
+  if (!priced.ok || !slot) return null;
+
+  const cancelUntil = freeCancelHours !== undefined ? new Date(slotStart(date, slot.time).getTime() - freeCancelHours * 3600_000) : undefined;
+  const save = priced.fullTotal > priced.total ? Math.round((1 - priced.total / priced.fullTotal) * 100) : 0;
+  const breakdown =
+    option.pricingMode === "per_group"
+      ? `Group of ${priced.totalParticipants}`
+      : priced.lines.map((line) => `${line.count} ${line.label} × ${formatCurrency(line.unitPrice)}`).join(", ");
+  const facts = [
+    option.durationLabel,
+    option.isPrivate ? "Private tour" : "Small group",
+    option.skipTheLine && "Skip the line",
+    option.wheelchairAccessible && "Wheelchair accessible",
+    ...option.guideMaterials,
+  ].filter(Boolean) as string[];
+
+  return (
+    <article
+      onClick={() => !selected && onSelect(slot.time)}
+      className={cn(
+        "relative flex w-[85%] shrink-0 cursor-pointer snap-start flex-col rounded-2xl bg-surface p-4 transition-shadow sm:w-[calc((100%-1rem)/2)] xl:w-[calc((100%-2rem)/3)]",
+        selected ? "ring-2 ring-primary" : "ring-1 ring-border hover:shadow-card",
+      )}
+    >
+      {slot.remaining <= 5 && (
+        <span className="absolute -top-3 left-3 rounded-md bg-accent-dark px-2 py-0.5 text-xs font-semibold text-white">
+          Only {slot.remaining} spot{slot.remaining === 1 ? "" : "s"} left
+        </span>
+      )}
+
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-semibold text-midnight">{option.title}</h3>
+        <span
+          aria-hidden
+          className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full", selected ? "bg-primary text-white" : "ring-2 ring-border")}
+        >
+          {selected && <Check size={14} strokeWidth={3} />}
+        </span>
+      </div>
+
+      {(option.description || facts.length > 0) && (
+        <div className="mt-2 text-sm text-slate">
+          {option.description && <p className="line-clamp-3">{option.description}</p>}
+          {facts.length > 0 && <p>{facts.join(" · ")}</p>}
+        </div>
+      )}
+
+      <ul className="mt-3 flex flex-col gap-2 text-sm text-midnight">
+        {(option.languages.length > 0 || guideLabel) && (
+          <li className="flex items-center gap-2">
+            <Users size={16} className="shrink-0 text-slate" /> {guideLabel ?? "Guide"}: {language || option.languages.join(", ")}
+          </li>
+        )}
+        <li className="flex items-center gap-2">
+          <Wallet size={16} className="shrink-0 text-slate" /> Reserve now & pay on arrival
+        </li>
+        {cancelUntil && sriLankaToday(cancelUntil) >= today && (
+          <li className="flex items-center gap-2">
+            <CalendarDays size={16} className="shrink-0 text-slate" /> Cancel for free until {shortDate(cancelUntil)}
+          </li>
+        )}
+        {option.pickupMode !== "none" && (
+          <li className="flex items-center gap-2">
+            <Bus size={16} className="shrink-0 text-slate" /> {option.pickupMode === "area" ? "Pickup in area" : "Pickup included"}
+          </li>
+        )}
+        {option.instantConfirm && (
+          <li className="flex items-center gap-2 font-medium text-nature">
+            <Zap size={16} className="shrink-0" /> Instant confirmation
+          </li>
+        )}
+      </ul>
+
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="text-sm font-semibold text-midnight">Select a starting time</p>
+        <p className="text-sm text-slate">{longDate(date)}</p>
+        <label className="relative mt-2 inline-block" onClick={(event) => event.stopPropagation()}>
+          <span className="sr-only">Starting time</span>
+          <select
+            value={slot.time}
+            onChange={(event) => {
+              setTime(event.target.value);
+              onSelect(event.target.value);
+            }}
+            className="h-11 appearance-none rounded-xl border-2 border-midnight/80 bg-surface pr-10 pl-4 text-sm font-semibold text-midnight focus:border-primary focus:outline-none"
+          >
+            {slots.map((s) => (
+              <option key={s.time} value={s.time}>
+                {formatTime(s.time)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-midnight" />
+        </label>
+      </div>
+
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-xl font-bold text-midnight">{formatCurrency(priced.total)}</span>
+          {save > 0 && (
+            <>
+              <span className="text-sm text-slate line-through">{formatCurrency(priced.fullTotal)}</span>
+              <span className="text-sm font-semibold text-accent-dark">-{save}%</span>
+            </>
+          )}
+        </p>
+        <p className="text-sm text-slate">{breakdown}</p>
+        <p className="text-xs text-slate">All taxes and fees included</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (selected) onContinue();
+          else onSelect(slot.time);
+        }}
+        className={cn(
+          "mt-4 h-11 rounded-full text-sm font-semibold transition-colors",
+          selected ? "bg-primary text-white hover:bg-primary-dark" : "text-primary ring-2 ring-primary hover:bg-primary/5",
+        )}
+      >
+        {selected ? "Continue" : "Select"}
+      </button>
+    </article>
+  );
+}
+
+/** "07:00" → "7:00 AM" */
+function formatTime(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
 /** Only the guest types an option prices; others are dropped (e.g. "infant" on an adults-only option) */
@@ -598,6 +888,7 @@ function MonthCalendar({
   loading,
   onMonth,
   onSelect,
+  empty,
 }: {
   month: string;
   today: string;
@@ -606,7 +897,10 @@ function MonthCalendar({
   loading: boolean;
   onMonth: (delta: number) => void;
   onSelect: (date: string) => void;
+  /** When the month has no open dates: the next open date (undefined while looking, null if none) */
+  empty?: { loading: boolean; next: string | null | undefined; onNext: (date: string) => void };
 }) {
+  const noDates = !loading && available.size === 0;
   const [y, m] = month.split("-").map(Number);
   const first = new Date(Date.UTC(y, m - 1, 1));
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -653,7 +947,28 @@ function MonthCalendar({
           );
         })}
       </div>
-      <p className="mt-3 text-xs text-slate">Highlighted dates have space for your group.</p>
+      {noDates && empty ? (
+        <div className="mt-3 rounded-xl bg-midnight/[0.04] p-3 text-sm">
+          <p className="font-semibold text-midnight">No dates available this month</p>
+          {empty.loading ? (
+            <p className="mt-1 flex items-center gap-1.5 text-slate">
+              <Loader2 size={14} className="animate-spin" /> Looking for the next available date…
+            </p>
+          ) : empty.next ? (
+            <button
+              type="button"
+              onClick={() => empty.onNext(empty.next!)}
+              className="mt-2 h-10 w-full rounded-full bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+            >
+              Go to next available date: {formatDisplayDate(empty.next) ?? empty.next}
+            </button>
+          ) : (
+            <p className="mt-1 text-slate">There are no open dates for your group yet. Please contact us and we&apos;ll arrange a date for you.</p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-slate">Highlighted dates have space for your group.</p>
+      )}
     </div>
   );
 }

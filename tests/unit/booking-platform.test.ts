@@ -156,6 +156,7 @@ describe("admin forms", () => {
       form.set("category", "Culture");
       form.set("summary", "A day in Kandy");
       form.set("imageUrl", "https://x.supabase.co/storage/v1/object/public/site-media/a.webp");
+      form.set("photoRightsConfirmed", "on");
       form.set("price", "50");
       return form;
     };
@@ -216,7 +217,7 @@ describe("stats and reviews helpers", () => {
 describe("itinerary and review photo checks", () => {
   it("accepts typed itinerary stops and rejects unknown types", () => {
     const form = new FormData();
-    const base = { title: "T", slug: "t", category: "Culture", summary: "S", imageUrl: "https://x.supabase.co/a.webp", price: "1" };
+    const base = { title: "T", slug: "t", category: "Culture", summary: "S", imageUrl: "https://x.supabase.co/a.webp", price: "1", photoRightsConfirmed: "on" };
     for (const [k, v] of Object.entries(base)) form.set(k, v);
     form.set(
       "itinerary",

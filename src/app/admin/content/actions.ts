@@ -64,7 +64,9 @@ export async function saveContentAction(_prev: SaveContentState, formData: FormD
 
   refreshSite();
   const notice = parsed.status === "PUBLISHED" ? "published" : "saved";
-  redirect(`${contentListHref(type)}?notice=${notice}`);
+  // A saved tour continues to its options & availability, like the last step of a product wizard
+  const slug = typeof parsed.data.slug === "string" ? parsed.data.slug : "";
+  redirect(type === "tour-packages" && slug ? `/admin/products/${slug}?notice=${notice}` : `${contentListHref(type)}?notice=${notice}`);
 }
 
 export async function deleteContentAction(formData: FormData) {

@@ -66,9 +66,25 @@ export const KEYWORD_SUGGESTIONS = [
   "Waterfalls", "Beach", "Food", "Local culture", "Adventure", "Private", "Train ride", "Day trip",
 ];
 
+export const DISCOUNT_TYPES = ["percent", "amount"] as const;
+export const DISCOUNT_TYPE_LABELS: Record<(typeof DISCOUNT_TYPES)[number], string> = {
+  percent: "Percentage off (%)",
+  amount: "Amount off (USD)",
+};
+
 export const BADGES = ["Best Seller", "Luxury", "New", "Family Friendly", "Top Pick", "Top Rated", "New Activity"] as const;
 
-type BaseField = { name: string; label: string; help?: string; required?: boolean };
+type BaseField = {
+  name: string;
+  label: string;
+  help?: string;
+  required?: boolean;
+  /** Recommended maximum length: shows a character counter (text/textarea) — a guide, not a hard limit */
+  counter?: number;
+  /** For lists: recommended maximum length per line, and recommended number of lines */
+  itemCounter?: number;
+  itemsHint?: string;
+};
 
 export type SubField =
   | { name: string; label: string; kind: "text" | "textarea" | "number" | "checkbox"; required?: boolean }
@@ -132,53 +148,109 @@ export const CONTENT_CONFIG: Record<ContentType, ContentTypeConfig> = {
     wizard: true,
     sections: [
       {
-        title: "Overview",
+        title: "Category",
         fields: [
-          { kind: "text", name: "title", label: "Title", required: true },
-          { kind: "slug", name: "slug", label: "Slug (page address)", from: "title", required: true },
-          { kind: "text", name: "tourType", label: "Tour type tag", help: 'Shown on the card, e.g. "Transfer tour", "Day trip"' },
-          { kind: "text", name: "location", label: "Starting location", help: 'e.g. "Kandy", "From Kandy"' },
-          { kind: "multiselect", name: "destinationSlugs", label: "Destinations", source: "destinations" },
           { kind: "select", name: "category", label: "Category", options: TOUR_CATEGORIES, required: true },
+          { kind: "text", name: "tourType", label: "Activity type", help: 'Shown on the tour card, e.g. "Day trip", "Private tour", "Transfer tour"' },
           { kind: "select", name: "badge", label: "Badge", options: BADGES },
-          { kind: "textarea", name: "summary", label: "Card summary", required: true },
+          { kind: "text", name: "provider", label: "Activity provider", help: "Shown on the tour page, e.g. Ceylon IT Tours" },
+        ],
+      },
+      {
+        title: "Title & description",
+        fields: [
+          {
+            kind: "text",
+            name: "title",
+            label: "Title",
+            required: true,
+            counter: 60,
+            help: 'Start with the location and a colon, then the activity and what makes it special, in title case — e.g. "From Kandy: Nuwara Eliya Day Trip by Tuk Tuk"',
+          },
+          { kind: "slug", name: "slug", label: "Page address", from: "title", required: true },
+          { kind: "textarea", name: "summary", label: "Card summary", required: true, counter: 160, help: "One or two sentences for tour cards and search results" },
+          { kind: "textarea", name: "description", label: "Short description", counter: 300, help: "Shown under the photos — sum up the experience in 2–3 sentences" },
+          {
+            kind: "list",
+            name: "highlights",
+            label: "Highlights",
+            itemCounter: 80,
+            itemsHint: "3–5",
+            help: "3–5 highlights, one per line (up to 80 characters each) — what makes this tour special",
+          },
+          { kind: "textarea", name: "routeSummary", label: "Full description", help: "Everything customers will do, in order. Shown as “Full description” on the tour page." },
+        ],
+      },
+      {
+        title: "Locations",
+        fields: [
+          { kind: "text", name: "location", label: "Starting location", help: 'e.g. "Kandy", "From Kandy"' },
+          { kind: "multiselect", name: "destinationSlugs", label: "Places visited", source: "destinations", help: "The cities and sights customers visit" },
+        ],
+      },
+      {
+        title: "Keywords",
+        fields: [
           {
             kind: "list",
             name: "keywords",
             label: "Keywords",
             max: 15,
-            help: `Up to 15 tags that help customers find the tour, one per line — e.g. ${KEYWORD_SUGGESTIONS.slice(0, 6).join(", ")}`,
+            itemsHint: "up to 15",
+            help: `Tags that help customers find the tour, one per line — e.g. ${KEYWORD_SUGGESTIONS.slice(0, 8).join(", ")}`,
           },
+        ],
+      },
+      {
+        title: "Inclusions",
+        fields: [
+          { kind: "list", name: "includes", label: "What's included", help: "Everything included in the price, one per line" },
+          { kind: "list", name: "excludes", label: "What's not included", help: "Optional fees or extras customers may pay for, one per line" },
+          { kind: "select", name: "foodIncluded", label: "Food & drinks", options: FOOD_OPTIONS, labels: FOOD_LABELS },
+          { kind: "list", name: "foodDetails", label: "Food details", help: 'One per line, e.g. "Sri Lankan lunch", "Tea tasting"' },
+          { kind: "choices", name: "transportTypes", label: "Transport used during the activity", options: TRANSPORT_TYPES },
+        ],
+      },
+      {
+        title: "Guide information",
+        fields: [
+          { kind: "select", name: "guideType", label: "Who leads the activity?", options: GUIDE_TYPES, labels: GUIDE_TYPE_LABELS },
+          { kind: "list", name: "languages", label: "Guide languages", help: "One per line" },
+          {
+            kind: "list",
+            name: "guideCertifications",
+            label: "Certifications, licences and expertise",
+            help: 'Held by all or most of your guides, one per line — e.g. "SLTDA licensed national guide", "Red Cross First Aid"',
+          },
+        ],
+      },
+      {
+        title: "Extra information",
+        fields: [
+          { kind: "list", name: "notSuitableFor", label: "Not suitable for", help: 'One per line, e.g. "Pregnant women", "Wheelchair users"' },
+          { kind: "list", name: "notAllowed", label: "Not allowed", help: 'One per line, e.g. "Pets", "Luggage or large bags"' },
+          { kind: "list", name: "whatToBring", label: "What to bring", help: 'One per line, e.g. "Passport or ID card", "Comfortable shoes"' },
+          { kind: "list", name: "knowBeforeYouGo", label: "Know before you go", help: "Anything else customers should know before booking, one per line" },
+          { kind: "checkbox", name: "petFriendly", label: "Pet-friendly" },
+          { kind: "textarea", name: "petPolicy", label: "Pet policy details", help: "e.g. Service animals only, dogs under 12 kg" },
         ],
       },
       {
         title: "Photos",
         fields: [
-          { kind: "image", name: "image", label: "Main photo", required: true, help: "Used on cards and at the top of the tour page" },
-          { kind: "gallery", name: "gallery", label: "Gallery", max: 20, help: "Up to 20 more photos. Drag order with the arrows; the first is shown first." },
+          { kind: "image", name: "image", label: "Main photo", required: true, help: "Used on tour cards and first in the gallery — choose your best, brightest photo" },
+          { kind: "gallery", name: "gallery", label: "More photos", max: 20, help: "Add at least 3 more (4 in total) showing the places and the experience. Use the arrows to order them." },
+          {
+            kind: "checkbox",
+            name: "photoRightsConfirmed",
+            label: "I confirm I own the copyright for these photos or have permission to use them, including from anyone recognisable in them",
+            required: true,
+          },
         ],
       },
       {
-        title: "Logistics",
+        title: "Itinerary & meeting point",
         fields: [
-          { kind: "number", name: "durationDays", label: "Duration (days)", min: 0 },
-          { kind: "number", name: "durationNights", label: "Duration (nights)", min: 0 },
-          { kind: "text", name: "durationLabel", label: "Duration label", help: 'For hour-based tours, e.g. "7.5–8 hours"' },
-          { kind: "number", name: "price", label: "Price (USD)", step: 0.01, min: 0, required: true },
-          { kind: "number", name: "originalPrice", label: "Original price (USD)", step: 0.01, min: 0, help: "Shown crossed out when higher than the price" },
-          { kind: "text", name: "groupSize", label: "Group size", help: 'e.g. "Private group", "Up to 6 people"' },
-          { kind: "list", name: "languages", label: "Guide languages", help: "One per line" },
-          { kind: "checkbox", name: "freeCancellation", label: "Free cancellation" },
-          { kind: "checkbox", name: "payLater", label: "Reserve now & pay later" },
-          { kind: "text", name: "provider", label: "Activity provider" },
-        ],
-      },
-      {
-        title: "Trip details",
-        fields: [
-          { kind: "textarea", name: "description", label: "Full description (intro)" },
-          { kind: "list", name: "highlights", label: "Highlights", help: "One per line" },
-          { kind: "textarea", name: "routeSummary", label: "Route summary" },
           {
             kind: "objectList",
             name: "itinerary",
@@ -195,28 +267,6 @@ export const CONTENT_CONFIG: Record<ContentType, ContentTypeConfig> = {
               { name: "lng", label: "Longitude", kind: "number" },
             ],
           },
-          { kind: "list", name: "includes", label: "Includes", help: "One per line" },
-          { kind: "list", name: "excludes", label: "Excludes", help: "One per line" },
-          { kind: "list", name: "notSuitableFor", label: "Not suitable for", help: "One per line" },
-          { kind: "list", name: "whatToBring", label: "What to bring", help: "One per line" },
-          { kind: "list", name: "notAllowed", label: "Not allowed", help: "One per line" },
-          { kind: "list", name: "knowBeforeYouGo", label: "Know before you go", help: "One per line" },
-        ],
-      },
-      {
-        title: "Food, transport & guide",
-        fields: [
-          { kind: "select", name: "foodIncluded", label: "Food & drinks", options: FOOD_OPTIONS, labels: FOOD_LABELS },
-          { kind: "list", name: "foodDetails", label: "Food details", help: 'One per line, e.g. "Sri Lankan lunch", "Tea tasting"' },
-          { kind: "choices", name: "transportTypes", label: "Transport used during the activity", options: TRANSPORT_TYPES },
-          { kind: "select", name: "guideType", label: "Who leads the activity?", options: GUIDE_TYPES, labels: GUIDE_TYPE_LABELS },
-          { kind: "checkbox", name: "petFriendly", label: "Pet-friendly" },
-          { kind: "textarea", name: "petPolicy", label: "Pet policy details", help: "e.g. Service animals only" },
-        ],
-      },
-      {
-        title: "Meeting point",
-        fields: [
           { kind: "select", name: "meetingType", label: "How the tour starts", options: MEETING_TYPES, labels: MEETING_TYPE_LABELS },
           { kind: "text", name: "meetingPointName", label: "Meeting point name", help: 'e.g. "Kandy Clock Tower"' },
           { kind: "text", name: "meetingPointAddress", label: "Address" },
@@ -226,15 +276,20 @@ export const CONTENT_CONFIG: Record<ContentType, ContentTypeConfig> = {
         ],
       },
       {
-        title: "Cancellation",
+        title: "Duration, price & policies",
         fields: [
+          { kind: "number", name: "durationDays", label: "Duration (days)", min: 0 },
+          { kind: "number", name: "durationNights", label: "Duration (nights)", min: 0 },
+          { kind: "text", name: "durationLabel", label: "Duration label", help: 'For hour-based tours, e.g. "7.5–8 hours"' },
+          { kind: "text", name: "groupSize", label: "Group size", help: 'e.g. "Private group", "Up to 6 people"' },
+          { kind: "number", name: "price", label: "From price (USD)", step: 0.01, min: 0, required: true, help: "Shown on cards. Options set the actual booking prices." },
+          { kind: "number", name: "originalPrice", label: "Original price (USD)", step: 0.01, min: 0, help: "Optional: shown crossed out when higher than the price" },
+          { kind: "select", name: "discountType", label: "Discount", options: DISCOUNT_TYPES, labels: DISCOUNT_TYPE_LABELS, help: "Applies to every booking of this tour and shows as “Save X%”" },
+          { kind: "number", name: "discountValue", label: "Discount value", step: 0.01, min: 0, help: "e.g. 15 for 15% off, or 10 for $10 off each guest (or each group, for group prices)" },
           { kind: "select", name: "cancellationPolicy", label: "Cancellation policy", options: CANCELLATION_POLICIES, labels: CANCELLATION_POLICY_LABELS },
-          { kind: "textarea", name: "cancellationNotes", label: "Policy details", help: "Shown on the tour page under the policy" },
-        ],
-      },
-      {
-        title: "Booking questions",
-        fields: [
+          { kind: "textarea", name: "cancellationNotes", label: "Cancellation details", help: "Shown on the tour page under the policy" },
+          { kind: "checkbox", name: "freeCancellation", label: "Free cancellation" },
+          { kind: "checkbox", name: "payLater", label: "Reserve now & pay later" },
           {
             kind: "objectList",
             name: "bookingQuestions",
@@ -248,9 +303,9 @@ export const CONTENT_CONFIG: Record<ContentType, ContentTypeConfig> = {
         ],
       },
       {
-        title: "Reviews",
+        title: "Reviews (optional)",
         fields: [
-          { kind: "number", name: "rating", label: "Rating (0–5)", step: 0.1, min: 0, max: 5 },
+          { kind: "number", name: "rating", label: "Rating (0–5)", step: 0.1, min: 0, max: 5, help: "Only until real customer reviews arrive — then they take over" },
           { kind: "number", name: "reviewCount", label: "Review count", min: 0 },
           {
             kind: "objectList",
@@ -261,7 +316,7 @@ export const CONTENT_CONFIG: Record<ContentType, ContentTypeConfig> = {
               { name: "value", label: "Value (0–5)", kind: "number", required: true },
             ],
           },
-          { kind: "textarea", name: "aiReviewSummary", label: "Review summary" },
+          { kind: "textarea", name: "aiReviewSummary", label: "What travelers are saying" },
           {
             kind: "objectList",
             name: "reviewHighlights",

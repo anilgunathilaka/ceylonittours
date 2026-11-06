@@ -40,6 +40,7 @@ function packageForm(overrides: Record<string, string> = {}) {
     category: "Day Trips",
     imageUrl: "https://example.supabase.co/storage/v1/object/public/site-media/tour-packages/a.webp",
     imageAlt: "Tea country",
+    photoRightsConfirmed: "on",
     summary: "A scenic drive through tea country.",
     price: "49",
     originalPrice: "60",
@@ -80,7 +81,7 @@ describe("admin content", () => {
 
   it("creates, publishes and refreshes the site", async () => {
     const result = await saveAs(packageForm());
-    expect(result.redirect).toBe("/admin/products?notice=published");
+    expect(result.redirect).toBe("/admin/products/kandy-to-ella?notice=published");
     expect(cacheMocks.updateTag).toHaveBeenCalledWith("cms-content");
     expect(cacheMocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
 
@@ -111,7 +112,7 @@ describe("admin content", () => {
     expect(await getDatabasePackages()).toHaveLength(1);
 
     const result = await saveAs(packageForm({ id: published.id, status: "DRAFT", title: "Edited" }));
-    expect(result.redirect).toBe("/admin/products?notice=saved");
+    expect(result.redirect).toBe("/admin/products/kandy-to-ella?notice=saved");
     expect(await getDatabasePackages()).toHaveLength(0);
     expect((await prisma.tourPackage.findUniqueOrThrow({ where: { id: published.id } })).title).toBe("Edited");
   });

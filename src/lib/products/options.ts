@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { BookingStatus as DbStatus } from "@/generated/prisma/enums";
 import type { GroupTier, Offer, PriceCategory, PricingMode, Season } from "@/lib/products/pricing";
-import { bestOffer, quote } from "@/lib/products/pricing";
+import { quoteWithBestOffer, tourDiscountOffer, type TourDiscount } from "@/lib/products/pricing";
 import { computeSlots, slotKey, sriLankaToday, type DaySlots, type SlotBlock, type SlotRule } from "@/lib/products/slots";
 
 /**
@@ -201,6 +201,20 @@ export async function getAvailability(options: TourOption[], from: string, to: s
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
+/** A tour's own discount (admin-managed tours only) */
+export async function getTourDiscount(packageSlug: string, db: Db = prisma): Promise<TourDiscount | undefined> {
+  const row = await db.tourPackage.findUnique({ where: { slug: packageSlug }, select: { discountType: true, discountValue: true } });
+  if (!row?.discountValue || (row.discountType !== "percent" && row.discountType !== "amount")) return undefined;
+  return { type: row.discountType, value: row.discountValue };
+}
+
+/** Everything that can lower this tour's booking price: its own discount and matching special offers */
+export async function getOffersForPackage(packageSlug: string, db: Db = prisma): Promise<Offer[]> {
+  const [offers, discount] = await Promise.all([getActiveOffers(db), getTourDiscount(packageSlug, db)]);
+  const tourOffer = tourDiscountOffer(packageSlug, discount);
+  return [...offers.filter((o) => o.packageSlugs.length === 0 || o.packageSlugs.includes(packageSlug)), ...(tourOffer ? [tourOffer] : [])];
+}
+
 /** Active special offers, for the pricing */
 export async function getActiveOffers(db: Db = prisma): Promise<Offer[]> {
   const rows = await db.specialOffer.findMany({ where: { active: true } });
@@ -208,6 +222,7 @@ export async function getActiveOffers(db: Db = prisma): Promise<Offer[]> {
     name: r.name,
     type: r.type === "early_bird" || r.type === "last_minute" ? r.type : "dates",
     discountPercent: r.discountPercent,
+    discountAmount: null,
     packageSlugs: r.packageSlugs,
     days: r.days,
     travelFrom: iso(r.travelFrom),
@@ -259,8 +274,8 @@ export async function createOptionBooking(input: {
     }
     if (option.pickupMode === "area" && !pickup) throw new SlotUnavailableError("Enter your pickup address or hotel.");
 
-    const offer = bestOffer(await getActiveOffers(tx), input.packageSlug, input.date, sriLankaToday(input.now));
-    const priced = quote(option, input.counts, input.date, offer);
+    const offers = await getOffersForPackage(input.packageSlug, tx);
+    const priced = quoteWithBestOffer(option, input.counts, input.date, offers, input.packageSlug, sriLankaToday(input.now));
     if (!priced.ok) throw new SlotUnavailableError(priced.error);
 
     const days = (await getAvailability([option], input.date, input.date, { now: input.now, db: tx })).get(option.id) ?? [];

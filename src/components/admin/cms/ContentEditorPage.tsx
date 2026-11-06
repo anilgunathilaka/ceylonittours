@@ -31,7 +31,7 @@ export function ContentEditorPage({
 
   return (
     <AdminShell
-      narrow
+      narrow={!config.wizard}
       title={id ? `Edit ${config.singular.toLowerCase()}` : `New ${config.singular.toLowerCase()}`}
       back={{ href: contentListHref(type), label: type === "tour-packages" ? "Tours & options" : config.label }}
       actions={

@@ -48,7 +48,24 @@ export function parseContentForm(type: ContentType, formData: FormData): ParsedC
     if (error) errors[field.name] = error;
   }
 
+  if (type === "tour-packages") checkTourDiscount(data, errors);
+
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, status, data };
+}
+
+/** Discount type and value go together: a percent must be 1–90, an amount must be less than the price */
+function checkTourDiscount(data: Record<string, unknown>, errors: Record<string, string>) {
+  const type = data.discountType;
+  const value = typeof data.discountValue === "number" ? data.discountValue : null;
+  if (!type && !value) {
+    data.discountType = null;
+    data.discountValue = null;
+    return;
+  }
+  if (!type) errors.discountType ??= "Choose percentage or amount";
+  else if (!value) errors.discountValue ??= "Enter the discount value";
+  else if (type === "percent" && (value < 1 || value > 90)) errors.discountValue ??= "A percentage discount must be between 1 and 90";
+  else if (type === "amount" && typeof data.price === "number" && value >= data.price) errors.discountValue ??= "The discount must be less than the price";
 }
 
 function parseField(field: Field, formData: FormData, data: Record<string, unknown>): string | undefined {
@@ -94,9 +111,12 @@ function parseField(field: Field, formData: FormData, data: Record<string, unkno
       data[field.name] = result.value;
       return;
     }
-    case "checkbox":
-      data[field.name] = formData.get(field.name) === "on";
+    case "checkbox": {
+      const checked = formData.get(field.name) === "on";
+      if (field.required && !checked) return "Please tick this box to continue";
+      data[field.name] = checked;
       return;
+    }
     case "date": {
       const value = text(formData, field.name);
       if (!value) {
