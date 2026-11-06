@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // The Hostinger build machine reports many CPUs; one build worker per CPU ran out of memory
+    // (SIGABRT while collecting page data) and opened too many database connections. Two is plenty.
+    cpus: 2,
+  },
   images: {
     remotePatterns: [
       {
